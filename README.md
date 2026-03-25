@@ -56,7 +56,7 @@ MC_API_URL=http://192.168.4.1
 
 ### Admin-Zugang sichern
 
-- Standardpasswort `admin123` sofort ersetzen: `.env` anpassen, dann neu bauen/starten: `make build`.
+- Standardpasswort `admin123` sofort ersetzen: `.env` anpassen, dann Container neu starten: `docker compose up -d --force-recreate app` (oder `make up`).
 
 ## Lokale Entwicklung
 

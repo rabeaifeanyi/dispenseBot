@@ -47,7 +47,7 @@ if [ "$WARNED" = true ]; then
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo "!!  ACHTUNG: Es wurde das Standard-Passwort 'admin123' gesetzt.                        !!"
   echo "!!  Das ist EXTREM UNSICHER! Für echten Einsatz in .env ein starkes Passwort setzen    !!"
-  echo "!!  und danach neu bauen: docker-compose build --no-cache app && docker-compose up -d  !!"
+  echo "!!  und danach Container neu starten: docker compose up -d --force-recreate app        !!"
   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
   echo ""
 fi
