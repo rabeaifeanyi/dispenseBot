@@ -1,9 +1,25 @@
 import de from '@/locales/de.json';
+import en from '@/locales/en.json';
 
 type TranslationKeys = typeof de;
 
+const translations: Record<string, TranslationKeys> = {
+  de,
+  en,
+};
+
 class I18n {
+  private currentLocale: string = 'de';
   private translations: TranslationKeys = de;
+
+  setLocale(locale: string) {
+    this.currentLocale = locale;
+    this.translations = translations[locale] || translations['de'];
+  }
+
+  getLocale(): string {
+    return this.currentLocale;
+  }
 
   t(key: string): string {
     const keys = key.split('.');

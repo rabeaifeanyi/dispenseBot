@@ -10,6 +10,21 @@ DispenseBot is a 3D-printed dispensing machine we built to automatically dispens
 
 ---
 
+## Requirements
+
+- **Docker** & **Docker Compose**
+
+### macOS Docker Desktop Setup
+
+If you're on macOS with Docker Desktop, you need to enable host networking:
+
+1. Open **Docker Desktop Settings**
+2. Go to **Resources** → **Network**
+3. Check **"Enable host networking"**
+4. Restart Docker Desktop
+
+---
+
 ## Overview
 
 | Component          | Technology | Port |
@@ -31,16 +46,7 @@ DispenseBot is a 3D-printed dispensing machine we built to automatically dispens
 
 ## Quick Start with the GitHub Image
 
-The pre-built Docker image is published automatically — no local build required.
-
-**Step 1 – Clone the repository**
-
-```bash
-git clone https://github.com/rabeaifeanyi/dispensebot.git
-cd dispensebot
-```
-
-**Step 2 – Create `.env` and set a password**
+**Create `.env` and set a password**
 
 ```bash
 cp .env.example .env
@@ -58,13 +64,13 @@ Optionally, set the ESP32 controller address if it differs from the default:
 MC_API_URL=http://192.168.178.1
 ```
 
-**Step 3 – Start the stack**
+**Start the stack**
 
 ```bash
 make up
 ```
 
-This pulls the latest image from `ghcr.io/rabeaifeanyi/dispensebot:latest` and starts all services. The web interface is then available at `http://localhost:3000`.
+This pulls the latest image from `ghcr.io/rabeaifeanyi/dispensebot:latest` and starts all services. The web interface is then available at `http://localhost:3000` (English version availiable at `http://localhost:3000/en`).
 
 ---
 
@@ -107,7 +113,7 @@ npm run seed
 npm run dev
 ```
 
-API runs at `http://localhost:3001`, frontend at `http://localhost:3000`.
+API runs at `http://localhost:3001`, frontend at `http://localhost:3000` (English version availiable at `http://localhost:3000/en`).
 
 Alternatively, in two separate terminals:
 
@@ -158,6 +164,50 @@ Change `AP_SSID` and `AP_PASS` to rename the network or set a new password. Chan
 
 ---
 
+## Parts Configuration (`api/config.json`)
+
+The file `api/config.json` defines which parts the machine knows about. Each entry corresponds to one physical magazine slot.
+
+```jsonc
+{
+  "version": 1,
+
+  // Order in which parts appear in the UI
+  "order": ["PART1", "PART2", "PART3", "PART4", "PART5"],
+
+  "parts": {
+    "PART1": {
+      // Name shown in the web interface
+      "displayName": "Drücker",
+
+      // Label printed on the physical magazine (helps identify it in the machine)
+      "magazineLabel": "grünes Magazin",
+
+      // Color used to highlight this part in the UI
+      "tint": {
+        "base": "#bfe3d0", // background color
+        "overlay": "#4fa37f" // accent color
+      },
+
+      // Base filename for part images (without extension)
+      "images": {
+        "fileBase": "druecker"
+      },
+
+      // Indices used to communicate with the ESP32 controller.
+      // These must match the wiring of the corresponding servo/slot on the machine.
+      "mc": {
+        "wertIndex": 1, // value sent to the controller
+        "antwortIndex": 1, // expected response index
+        "magazinIndex": 1 // physical magazine position (1–5)
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Useful Commands
 
 | Command                    | Action                                  |
@@ -168,5 +218,5 @@ Change `AP_SSID` and `AP_PASS` to rename the network or set a new password. Chan
 | `make logs`                | Live logs of the app                    |
 | `make shell`               | Shell inside the running container      |
 | `npx prisma migrate reset` | Reset the database (deletes all data)   |
-| `npm run seed`             | Load demo data                          |
+| `npm run seed`             | Load start data                         |
 | `npx prisma studio`        | Database GUI at `http://localhost:5555` |

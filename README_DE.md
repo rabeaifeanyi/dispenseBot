@@ -6,6 +6,21 @@ DispenseBot ist ein 3D-gedruckter Kommissionierautomat, den wir entwickelt haben
 
 ---
 
+## Anforderungen
+
+- **Docker** & **Docker Compose**
+
+### macOS Docker Desktop Setup
+
+Wenn du macOS mit Docker Desktop nutzt, musst du "Host Networking" aktivieren:
+
+1. Öffne **Docker Desktop Settings**
+2. Gehe zu **Resources** → **Network**
+3. Aktiviere **"Enable host networking"**
+4. Starte Docker Desktop neu
+
+---
+
 ## Übersicht
 
 | Komponente          | Technologie | Port |
@@ -145,6 +160,50 @@ IPAddress apIP(192, 168, 178, 1);
 
 ---
 
+## Teile-Konfiguration (`api/config.json`)
+
+Die Datei `api/config.json` legt fest, welche Teile der Automat kennt. Jeder Eintrag entspricht einem physischen Magazinschacht.
+
+```jsonc
+{
+  "version": 1,
+
+  // Reihenfolge, in der die Teile im Webinterface angezeigt werden
+  "order": ["PART1", "PART2", "PART3", "PART4", "PART5"],
+
+  "parts": {
+    "PART1": {
+      // Name, der im Webinterface angezeigt wird
+      "displayName": "Drücker",
+
+      // Beschriftung des physischen Magazins (hilft beim Erkennen im Automaten)
+      "magazineLabel": "grünes Magazin",
+
+      // Farbe, mit der dieses Teil im UI hervorgehoben wird
+      "tint": {
+        "base": "#bfe3d0", // Hintergrundfarbe
+        "overlay": "#4fa37f" // Akzentfarbe
+      },
+
+      // Basis-Dateiname für Teilbilder (ohne Dateiendung)
+      "images": {
+        "fileBase": "druecker"
+      },
+
+      // Indizes für die Kommunikation mit dem ESP32-Controller.
+      // Müssen mit der Verkabelung des zugehörigen Servos/Schachts am Automaten übereinstimmen.
+      "mc": {
+        "wertIndex": 1, // Wert, der an den Controller gesendet wird
+        "antwortIndex": 1, // erwarteter Antwortindex
+        "magazinIndex": 1 // physische Magazinposition (1–5)
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Nützliche Befehle
 
 | Befehl                     | Aktion                                      |
@@ -155,5 +214,5 @@ IPAddress apIP(192, 168, 178, 1);
 | `make logs`                | Live-Logs der App                           |
 | `make shell`               | Shell im laufenden Container                |
 | `npx prisma migrate reset` | Datenbank zurücksetzen (löscht alle Daten)  |
-| `npm run seed`             | Demodaten laden                             |
+| `npm run seed`             | Startdaten laden                            |
 | `npx prisma studio`        | Datenbank-GUI unter `http://localhost:5555` |

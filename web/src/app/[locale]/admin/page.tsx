@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import InventoryDashboard from '@/components/InventoryDashboard';
 import { Button, message } from 'antd';
 import { LogoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { spacing } from '@/styles/spacing';
+import { i18n } from '@/lib/i18n';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
 export default function AdminPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [lastActivity, setLastActivity] = useState(Date.now());
@@ -28,18 +30,18 @@ export default function AdminPage() {
       } else {
         localStorage.removeItem('admin_authenticated');
         localStorage.removeItem('admin_last_activity');
-        message.warning(
-          'Du wurdest nach 15 Minuten Inaktivität automatisch abgemeldet'
-        );
-        router.replace('/');
+        message.warning(i18n.t('adminPage.loggedOutInactivity'));
+        const locale = pathname.split('/')[1];
+        router.replace(`/${locale}`);
         return;
       }
     } else {
-      router.replace('/');
+      const locale = pathname.split('/')[1];
+      router.replace(`/${locale}`);
       return;
     }
     setIsLoading(false);
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -78,9 +80,10 @@ export default function AdminPage() {
     localStorage.removeItem('admin_authenticated');
     localStorage.removeItem('admin_last_activity');
     if (autoLogout) {
-      message.warning('Automatisch abgemeldet nach 15 Minuten Inaktivität');
+      message.warning(i18n.t('adminPage.autoLogoutWarning'));
     }
-    router.replace('/');
+    const locale = pathname.split('/')[1];
+    router.replace(`/${locale}`);
   };
 
   if (isLoading || !isAuthenticated) {
@@ -103,13 +106,13 @@ export default function AdminPage() {
               icon={<UnorderedListOutlined />}
               onClick={() => setInventurOpen(true)}
             >
-              Schnell-Inventur
+              {i18n.t('inventory.inventurQuick')}
             </Button>
             <Button
               icon={<LogoutOutlined />}
               onClick={() => handleLogout(false)}
             >
-              Abmelden
+              {i18n.t('adminPage.logout')}
             </Button>
           </div>
           <InventoryDashboard

@@ -10,6 +10,7 @@ import {
 import { sortByPartOrder } from '@/lib/componentOrder';
 import { spacing } from '@/styles/spacing';
 import { useApi, InventoryItem } from '@/contexts/ApiContext';
+import { i18n } from '@/lib/i18n';
 
 type StockStatus = 'good' | 'warning' | 'critical';
 
@@ -236,7 +237,10 @@ export default function StockOverview() {
                     color: '#8c8c8c',
                   }}
                 >
-                  {item.magazineCount} Magazine, je {item.magazineSize} Teile
+                  {i18n
+                    .t('stock.magazinesSummary')
+                    .replace('{count}', String(item.magazineCount))
+                    .replace('{size}', String(item.magazineSize))}
                 </div>
                 <div
                   style={{

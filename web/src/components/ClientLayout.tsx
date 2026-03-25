@@ -29,32 +29,39 @@ function isAdminAuthenticated(): boolean {
 
 interface ClientLayoutProps {
   children: ReactNode;
+  locale?: string;
 }
 
-const navigationItems = [
-  {
-    key: '/',
-    icon: <HomeOutlined />,
-    label: i18n.t('app.navigation.home'),
-  },
-  {
-    key: '/order-history',
-    icon: <ShoppingOutlined />,
-    label: i18n.t('app.navigation.orderHistory'),
-  },
-  {
-    key: '/orders',
-    icon: <DatabaseOutlined />,
-    label: i18n.t('app.navigation.orders'),
-  },
-  {
-    key: '/admin',
-    icon: <ToolOutlined />,
-    label: i18n.t('app.navigation.admin'),
-  },
-];
+function getNavigationItems(locale: string = 'de') {
+  return [
+    {
+      key: `/${locale}`,
+      icon: <HomeOutlined />,
+      label: i18n.t('app.navigation.home'),
+    },
+    {
+      key: `/${locale}/order-history`,
+      icon: <ShoppingOutlined />,
+      label: i18n.t('app.navigation.orderHistory'),
+    },
+    {
+      key: `/${locale}/orders`,
+      icon: <DatabaseOutlined />,
+      label: i18n.t('app.navigation.orders'),
+    },
+    {
+      key: `/${locale}/admin`,
+      icon: <ToolOutlined />,
+      label: i18n.t('app.navigation.admin'),
+    },
+  ];
+}
 
-export default function ClientLayout({ children }: ClientLayoutProps) {
+export default function ClientLayout({
+  children,
+  locale = 'de',
+}: ClientLayoutProps) {
+  const navigationItems = getNavigationItems(locale);
   const { message } = App.useApp();
   const router = useRouter();
   const pathname = usePathname();
@@ -65,7 +72,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
 
   const handleAdminNavClick = () => {
     if (isDemo || isAdminAuthenticated()) {
-      router.push('/admin');
+      router.push(`/${locale}/admin`);
       return;
     }
     setAdminPassword('');
@@ -85,12 +92,12 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         const now = Date.now();
         localStorage.setItem('admin_authenticated', 'true');
         localStorage.setItem('admin_last_activity', now.toString());
-        message.success('Authentifizierung erfolgreich');
+        message.success(i18n.t('auth.success'));
         setAdminModalOpen(false);
         setAdminPassword('');
-        router.push('/admin');
+        router.push(`/${locale}/admin`);
       } else {
-        message.error('Falsches Passwort');
+        message.error(i18n.t('auth.wrongPassword'));
         setAdminPassword('');
       }
     } catch {
@@ -125,7 +132,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
             <div className="top-nav-buttons">
               {navigationItems.map((item) => {
                 const active = pathname === item.key;
-                const isAdmin = item.key === '/admin';
+                const isAdmin = item.key.endsWith('/admin');
                 return (
                   <Button
                     key={item.key}

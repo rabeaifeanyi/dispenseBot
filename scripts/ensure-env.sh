@@ -15,6 +15,14 @@ if [ ! -f .env ]; then
   WARNED=true
 fi
 
+# --- .env.docker ---
+if [ ! -f .env.docker ]; then
+  echo ""
+  echo "No .env.docker found — creating from .env.docker.example …"
+  cp .env.docker.example .env.docker
+  WARNED=true
+fi
+
 # --- ADMIN_PASSWORD aus .env lesen ---
 ADMIN_PASSWORD_VALUE=$(grep -E '^ADMIN_PASSWORD=' .env | cut -d'=' -f2- | tr -d '"' | tr -d "'")
 
@@ -42,12 +50,7 @@ fi
 
 if [ "$WARNED" = true ]; then
   echo ""
-  echo ""
-  echo ""
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "!!  ACHTUNG: Es wurde das Standard-Passwort 'admin123' gesetzt.                        !!"
-  echo "!!  Das ist EXTREM UNSICHER! Für echten Einsatz in .env ein starkes Passwort setzen    !!"
-  echo "!!  und danach Container neu starten: docker compose up -d --force-recreate app        !!"
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo ""
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "WARNING: ADMIN_PASSWORD is set to the default 'admin123' (unsafe)."
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 fi
