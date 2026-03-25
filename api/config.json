@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "order": ["PART1", "PART2", "PART3", "PART4", "PART5"],
+  "parts": {
+    "PART1": {
+      "displayName": "Drücker",
+      "magazineLabel": "grünes Magazin",
+      "tint": {
+        "base": "#bfe3d0",
+        "overlay": "#4fa37f"
+      },
+      "images": {
+        "fileBase": "druecker"
+      },
+      "mc": {
+        "wertIndex": 1,
+        "antwortIndex": 1,
+        "magazinIndex": 1
+      }
+    },
+    "PART2": {
+      "displayName": "Gehäuse-Oberteil",
+      "magazineLabel": "rotes Magazin",
+      "tint": {
+        "base": "#e6c7c7",
+        "overlay": "#9b6b6b"
+      },
+      "images": {
+        "fileBase": "gehaeuse_oberteil"
+      },
+      "mc": {
+        "wertIndex": 2,
+        "antwortIndex": 2,
+        "magazinIndex": 2
+      }
+    },
+    "PART3": {
+      "displayName": "Klipp",
+      "magazineLabel": "graues Magazin",
+      "tint": {
+        "base": "#dedede",
+        "overlay": "#9a9a9a"
+      },
+      "images": {
+        "fileBase": "klipp"
+      },
+      "mc": {
+        "wertIndex": 3,
+        "antwortIndex": 3,
+        "magazinIndex": 3
+      }
+    },
+    "PART4": {
+      "displayName": "Minenhülse",
+      "magazineLabel": "weißes Magazin",
+      "tint": {
+        "base": "#ffffff",
+        "overlay": "#ffffff"
+      },
+      "images": {
+        "fileBase": "minenhuelse"
+      },
+      "mc": {
+        "wertIndex": 4,
+        "antwortIndex": 4,
+        "magazinIndex": 4
+      }
+    },
+    "PART5": {
+      "displayName": "Raststück",
+      "magazineLabel": "blaues Magazin",
+      "tint": {
+        "base": "#c6d6ff",
+        "overlay": "#5f86ff"
+      },
+      "images": {
+        "fileBase": "raststueck"
+      },
+      "mc": {
+        "wertIndex": 5,
+        "antwortIndex": 5,
+        "magazinIndex": 5
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "kommissionierautomat",
+  "version": "1.0.0",
+  "description": "Kommissionierautomat - Pick-to-Light System",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "dev:api": "npm run dev -w api",
+    "dev:web": "npm run dev -w web",
+    "build:api": "npm run build -w api",
+    "build:web": "npm run build -w web",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3",
+    "tsx": "^4.20.6"
+  },
+  "overrides": {
+    "next": "15.5.13",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

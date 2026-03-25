@@ -1,0 +1,80 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+    PENDING
+    PROCESSING_ORDER
+    ORDER_READY
+    PICKED_UP
+    MAGAZINE_CHANGE_NEEDED
+    ABORTED
+}
+
+model Component {
+    id        String   @id @default(cuid())
+    type      String   @unique
+    name      String
+    inventory  Inventory?
+    orderItems OrderItem[]
+}
+
+model Inventory {
+    id                     String    @id @default(cuid())
+    componentId            String    @unique
+    component              Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+    totalStock             Int       @default(0)
+    currentMagazineStock   Int       @default(0)
+    estimatedMagazineStock Int       @default(0)
+    warningStock           Int       @default(30)
+    magazineCount          Int       @default(2) 
+    magazineSize           Int       @default(17) 
+    maxOrderQuantity       Int       @default(2)
+    lastRestocked          DateTime?
+    createdAt              DateTime  @default(now())
+    updatedAt              DateTime  @updatedAt
+
+    @@index([componentId])
+}
+
+model Order {
+    id                      String      @id @default(cuid())
+    orderNumber             String      @unique
+    status                  OrderStatus @default(PENDING)
+    totalItems              Int
+    dispensedItems          Int         @default(0) 
+    description             String? 
+    magazineChangeNeeded    Boolean     @default(false) 
+    createdAt               DateTime    @default(now())
+    updatedAt               DateTime    @updatedAt
+    completedAt             DateTime?
+    abortedAt               DateTime?
+    items                   OrderItem[]
+
+    @@index([status])
+    @@index([createdAt])
+}
+
+model OrderItem {
+    id                String    @id @default(cuid())
+    orderId           String
+    order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    componentId       String
+    component         Component @relation(fields: [componentId], references: [id])
+    quantity          Int
+    dispensedQuantity Int       @default(0)
+    createdAt         DateTime  @default(now())
+
+    @@index([orderId])
+    @@index([componentId])
+}
+
+model AppSettings {
+    id Int @id @default(1)
+    showMagazineChangeButton Boolean @default(true)
+}

@@ -1,0 +1,11 @@
+node_modules
+.git
+.vscode
+dist
+.next/cache
+.DS_Store
+npm-debug.log
+docker-compose.*
+README.md
+.env
+*.local

@@ -1,0 +1,50 @@
+{
+  "name": "kommissionierautomat-api",
+  "version": "1.0.0",
+  "description": "Backend API für Kommissionierautomat",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prebuild": "rimraf dist api/dist tsconfig.tsbuildinfo api/tsconfig.tsbuildinfo",
+    "build": "if [ -f tsconfig.json ]; then tsc -p tsconfig.json; else tsc -p api/tsconfig.json; fi",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "start": "nest start",
+    "dev": "nest start --watch",
+    "debug": "nest start --debug --watch",
+    "prod": "if [ -f dist/main.js ]; then node dist/main.js; else node api/dist/main.js; fi"
+  },
+  "dependencies": {
+    "@nestjs/axios": "^4.0.1",
+    "@nestjs/common": "^11.1.17",
+    "@nestjs/config": "^4.0.3",
+    "@nestjs/core": "^11.1.17",
+    "@nestjs/platform-express": "^11.1.17",
+    "dotenv": "^16.4.5",
+    "@prisma/client": "^6.19.0",
+    "axios": "^1.6.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.16",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.3.1",
+    "@types/supertest": "^2.0.12",
+    "@typescript-eslint/eslint-plugin": "^5.59.11",
+    "@typescript-eslint/parser": "^5.59.11",
+    "eslint": "^8.42.0",
+    "prettier": "^2.8.8",
+    "prisma": "^6.19.0",
+    "rimraf": "^5.0.1",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.3",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.3"
+  }
+}
