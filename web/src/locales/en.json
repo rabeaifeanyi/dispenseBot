@@ -3,7 +3,7 @@
     "title": "Dispensing Automaton",
     "navigation": {
       "home": "Order",
-      "orderHistory": "Order History",
+      "orderHistory": "Order overview",
       "orders": "Inventory",
       "admin": "Administration"
     }
@@ -24,6 +24,14 @@
     "cancelOrderButton": "Cancel Order",
     "magazineChangedButton": "Magazine Changed",
     "magazineEmptyDuringProcessing": "A magazine became empty during processing. Please change the magazine and confirm.",
+    "magazineChangeWaitStart": "A magazine must be changed. Press the button on the machine to start the magazine change.",
+    "magazineChangeCalibrating": "Magazine change in progress (calibrating)… please wait.",
+    "magazineChangeStartButton": "Start change",
+    "magazineChangeStartFailed": "Could not start magazine change",
+    "standaloneMagazineChangeTitle": "Magazine change required",
+    "standaloneMagazineChangeBodyWaitStart": "The machine is waiting for the magazine change to start. Press the button on the machine, or use “Start change”.",
+    "standaloneMagazineChangeBodyConfirm": "The machine is waiting for confirmation. Insert the magazine and confirm.",
+    "standaloneMagazineChangeFailed": "Could not confirm magazine change",
     "affectedMagazines": "Affected magazines:",
     "affectedPartLabel": "Affected part:",
     "pickupWaitingTitle": "Waiting for pickup",
@@ -104,6 +112,13 @@
     "maxOrderQuantityOutOfRange": "Maximum order quantity must be between 1 and {max} (number of magazines)!",
     "magazineChangeDisabled": "Automaton not connected - magazine change disabled",
     "magazineChangeTitle": "Change magazine?",
+    "forceMagazineChangeButton": "Trigger magazine change now",
+    "forceMagazineChangeTitle": "Trigger magazine change on automaton?",
+    "forceMagazineChangeWarning": "⚠️ Only trigger if the magazine is already empty. Remove the magazine first, then confirm here. The automaton will start calibration afterwards.",
+    "forceMagazineChangeSuccess": "Magazine change started – please insert new magazine",
+    "forceMagazineChangeFailed": "Could not start magazine change",
+    "forceMagazineChangeBlockedPickup": "Magazine change is not available while waiting for pickup.",
+    "forceMagazineChangeBlockedOrderFlow": "Quick change here is not available during an active order or while the magazine change dialog is shown.",
     "magazineChangeConfirm": "The active magazine will be refilled to {size} pieces ({component}).",
     "magazineChangeModalBase": "The active magazine will be refilled to {size} pieces ({component})",
     "magazineChangeButton": "Change Magazine",
@@ -150,7 +165,7 @@
     "emptyQueue": "No orders in queue"
   },
   "orders": {
-    "title": "Order History",
+    "title": "Order overview",
     "newOrder": "New Order",
     "orderNumber": "Order Number",
     "status": "Status",

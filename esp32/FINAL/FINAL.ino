@@ -1154,6 +1154,49 @@ void handleMagazinwechsel() {
   sendJson(200, resp);
 }
 
+void handleMagazinwechselStart() {
+  if (server.method() != HTTP_POST) {
+    server.send(405, "text/plain", "Method Not Allowed");
+    return;
+  }
+
+  if (state == WAIT_ORDER) {
+    if (!server.hasArg("plain")) {
+      server.send(400, "text/plain", "Bad Request: missing body");
+      return;
+    }
+    StaticJsonDocument<64> doc;
+    DeserializationError err = deserializeJson(doc, server.arg("plain"));
+    if (err) {
+      server.send(400, "text/plain", "Bad Request: invalid JSON");
+      return;
+    }
+    int part;
+    if (!requireKeyInt(doc, "part", part) || part < 1 || part > PART_COUNT) {
+      server.send(400, "text/plain", "Bad Request: expected 'part' (1..PART_COUNT)");
+      return;
+    }
+    currentPart = part - 1;
+    enterMagChangeForCurrentPart();
+    startMagazineChangeCalibration();
+    server.send(200, "text/plain", "OK");
+    return;
+  }
+
+  if (state != MAG_CHANGE) {
+    server.send(409, "text/plain", "MC not in MAG_CHANGE or WAIT_ORDER");
+    return;
+  }
+
+  if (currentPart < 0 || currentPart >= PART_COUNT) {
+    server.send(400, "text/plain", "No active part selected");
+    return;
+  }
+
+  startMagazineChangeCalibration();
+  server.send(200, "text/plain", "OK");
+}
+
 void handleSetAusgabe() {
   if (server.method() != HTTP_POST) {
     server.send(405, "text/plain", "Method Not Allowed");
@@ -1217,6 +1260,7 @@ void setupAccessPointAndServer() {
   server.on("/setAusgabe", HTTP_POST, handleSetAusgabe);
   server.on("/status", HTTP_GET, handleStatus);
   server.on("/magazinwechsel", HTTP_POST, handleMagazinwechsel);
+  server.on("/magazinwechsel/start", HTTP_POST, handleMagazinwechselStart);
   server.on("/data", HTTP_POST, handleData);
 
   server.begin();

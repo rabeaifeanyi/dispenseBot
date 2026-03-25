@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Button, message, Modal, Card, Popover } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Button, message, Card, Popover, Popconfirm, Tooltip } from 'antd';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { i18n } from '@/lib/i18n';
 import { sortByPartOrder } from '@/lib/componentOrder';
 import { spacing } from '@/styles/spacing';
@@ -50,17 +50,22 @@ export default function ComponentsDisplay({
   const { isDemo, mockInventory } = useDemo();
   const {
     inventory: apiInventory,
-    updateInventoryItem,
-    refetchInventory,
     componentsConfig,
+    queueStatus,
+    forceStartMagazineChange,
   } = useApi();
-  const [refilling, setRefilling] = useState<string | null>(null);
+  const [forcing, setForcing] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
-  const [refillModalItem, setRefillModalItem] = useState<any | null>(null);
   const [showRefillButton, setShowRefillButton] = useState(true);
   const [messageApi, contextHolder] = message.useMessage();
 
-  const refillDisabled = !isDemo && mcConnected === false;
+  const activeOrderStatus = queueStatus?.activeOrder?.status;
+  const disconnected = !isDemo && mcConnected === false;
+  const forceDisabled =
+    disconnected ||
+    activeOrderStatus === 'ORDER_READY' ||
+    activeOrderStatus === 'PROCESSING_ORDER' ||
+    activeOrderStatus === 'MAGAZINE_CHANGE_NEEDED';
 
   useEffect(() => {
     try {
@@ -116,35 +121,27 @@ export default function ComponentsDisplay({
     });
   };
 
-  const handleRefill = async (componentId: string) => {
-    if (!refillModalItem || !componentsConfig) return;
-    if (refillDisabled) {
-      messageApi.warning(i18n.t('componentsDisplay.refillDisabled'));
-      setRefillModalItem(null);
+  const handleForceMagazineChange = async (item: ComponentInfo) => {
+    if (!componentsConfig || forceDisabled) return;
+    const t = (item.component?.type as string | undefined)?.toUpperCase();
+    const part = t ? componentsConfig.parts[t]?.mc?.magazinIndex : undefined;
+    if (part == null) {
+      messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
       return;
     }
     try {
-      setRefilling(componentId);
-      setRefillModalItem(null);
+      setForcing(item.componentId);
       if (isDemo) {
-        messageApi.success(i18n.t('componentsDisplay.refillSuccessDemo'));
-        setRefilling(null);
+        messageApi.success(i18n.t('inventory.forceMagazineChangeSuccess'));
         return;
       }
-      const magazineSize =
-        apiInventory.find((c) => c.componentId === componentId)?.magazineSize ??
-        refillModalItem.magazineSize;
-
-      await updateInventoryItem(componentId, {
-        currentMagazineStock: magazineSize,
-      });
-      void refetchInventory(true);
-      messageApi.success(i18n.t('componentsDisplay.refillSuccess'));
+      await forceStartMagazineChange(part);
+      messageApi.success(i18n.t('inventory.forceMagazineChangeSuccess'));
     } catch (error) {
-      console.error('Failed to refill:', error);
-      messageApi.error(i18n.t('componentsDisplay.refillError'));
+      console.error('Failed to start magazine change:', error);
+      messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
     } finally {
-      setRefilling(null);
+      setForcing(null);
     }
   };
 
@@ -202,43 +199,28 @@ export default function ComponentsDisplay({
     );
   };
 
+  const forceButtonTooltip = (() => {
+    if (!forceDisabled) {
+      return i18n.t('inventory.forceMagazineChangeButton');
+    }
+    if (disconnected) {
+      return i18n.t('componentsDisplay.refillDisabled');
+    }
+    if (activeOrderStatus === 'ORDER_READY') {
+      return i18n.t('inventory.forceMagazineChangeBlockedPickup');
+    }
+    if (
+      activeOrderStatus === 'PROCESSING_ORDER' ||
+      activeOrderStatus === 'MAGAZINE_CHANGE_NEEDED'
+    ) {
+      return i18n.t('inventory.forceMagazineChangeBlockedOrderFlow');
+    }
+    return i18n.t('inventory.forceMagazineChangeButton');
+  })();
+
   return (
     <>
       {contextHolder}
-      <Modal
-        title={i18n.t('componentsDisplay.refillModalTitle')}
-        open={!!refillModalItem}
-        onOk={() =>
-          refillModalItem && handleRefill(refillModalItem.componentId)
-        }
-        onCancel={() => setRefillModalItem(null)}
-        okText={i18n.t('common.yes')}
-        cancelText={i18n.t('common.no')}
-        okButtonProps={{ disabled: refillDisabled }}
-      >
-        {!mcConnected && (
-          <div
-            style={{ marginBottom: spacing.sm, color: '#8c8c8c', fontSize: 12 }}
-          >
-            {i18n.t('componentsDisplay.disconnectedRefillHint')}
-          </div>
-        )}
-        {refillModalItem &&
-          (() => {
-            const t = (
-              refillModalItem.component?.type as string | undefined
-            )?.toUpperCase();
-            if (!t || !cfg.parts[t]) return null;
-            return (
-              <p>
-                {i18n
-                  .t('componentsDisplay.refillQuestion')
-                  .replace('{component}', cfg.parts[t].displayName)
-                  .replace('{size}', String(refillModalItem.magazineSize))}
-              </p>
-            );
-          })()}
-      </Modal>
       <div style={{ marginBottom: spacing.md }}>
         <div
           style={{
@@ -382,17 +364,35 @@ export default function ComponentsDisplay({
                       <div
                         style={{ display: 'flex', justifyContent: 'center' }}
                       >
-                        <Button
-                          className="refill-btn"
-                          type="default"
-                          size="small"
-                          icon={<ReloadOutlined />}
-                          loading={refilling === item.componentId}
-                          onClick={() => setRefillModalItem(item)}
-                          disabled={refillDisabled}
-                        >
-                          {i18n.t('componentsDisplay.switchButton')}
-                        </Button>
+                        <Tooltip title={forceButtonTooltip}>
+                          <Popconfirm
+                            title={i18n.t('inventory.forceMagazineChangeTitle')}
+                            description={i18n.t(
+                              'inventory.forceMagazineChangeWarning'
+                            )}
+                            onConfirm={() =>
+                              void handleForceMagazineChange(item)
+                            }
+                            okText={i18n.t('common.yes')}
+                            cancelText={i18n.t('common.cancel')}
+                            disabled={forceDisabled}
+                            overlayStyle={{ maxWidth: 320 }}
+                          >
+                            <span>
+                              <Button
+                                className="refill-btn"
+                                type="default"
+                                size="small"
+                                icon={<ThunderboltOutlined />}
+                                loading={forcing === item.componentId}
+                                disabled={forceDisabled}
+                                aria-label={i18n.t(
+                                  'inventory.forceMagazineChangeButton'
+                                )}
+                              />
+                            </span>
+                          </Popconfirm>
+                        </Tooltip>
                       </div>
                     )}
                   </Card>

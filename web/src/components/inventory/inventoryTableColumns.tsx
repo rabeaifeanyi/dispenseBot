@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { Button, InputNumber, Tooltip } from 'antd';
+import { Button, InputNumber, Popconfirm, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   EditOutlined,
   SaveOutlined,
   CloseOutlined,
-  ReloadOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { i18n } from '@/lib/i18n';
 import type { ComponentsConfig, InventoryItem } from '@/contexts/ApiContext';
@@ -27,10 +27,11 @@ interface UseInventoryTableColumnsParams {
   setEditValues: Dispatch<SetStateAction<InventoryEditValues>>;
   componentsConfig: ComponentsConfig | null;
   magazineChangeDisabled: boolean;
+  blockMagazineForce: boolean;
   onEdit: (record: InventoryItem) => void;
   onSave: (componentId: string) => void | Promise<void>;
   onCancelEdit: () => void;
-  onOpenMagazineChange: (record: InventoryItem) => void;
+  onForceMagazineChange: (record: InventoryItem) => void;
 }
 
 export function useInventoryTableColumns({
@@ -39,10 +40,11 @@ export function useInventoryTableColumns({
   setEditValues,
   componentsConfig,
   magazineChangeDisabled,
+  blockMagazineForce,
   onEdit,
   onSave,
   onCancelEdit,
-  onOpenMagazineChange,
+  onForceMagazineChange,
 }: UseInventoryTableColumnsParams): ColumnsType<InventoryItem> {
   return useMemo(
     () => [
@@ -334,6 +336,11 @@ export function useInventoryTableColumns({
               </div>
             );
           }
+          const forceDisabled = magazineChangeDisabled || blockMagazineForce;
+          const forceTooltip = blockMagazineForce
+            ? i18n.t('inventory.forceMagazineChangeBlockedPickup')
+            : i18n.t('inventory.forceMagazineChangeButton');
+
           return (
             <div
               style={{
@@ -352,16 +359,27 @@ export function useInventoryTableColumns({
                 title={i18n.t('inventory.editTooltip')}
                 aria-label={i18n.t('inventory.editTooltip')}
               />
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                onClick={() => onOpenMagazineChange(record)}
-                disabled={magazineChangeDisabled}
-                size="small"
-                className="admin-table-action-btn admin-table-magazine-btn"
-                title={i18n.t('inventory.magazineChangeButton')}
-                aria-label={i18n.t('inventory.magazineChangeButton')}
-              />
+              <Tooltip title={forceTooltip}>
+                <Popconfirm
+                  title={i18n.t('inventory.forceMagazineChangeTitle')}
+                  description={i18n.t('inventory.forceMagazineChangeWarning')}
+                  onConfirm={() => onForceMagazineChange(record)}
+                  okText={i18n.t('common.yes')}
+                  cancelText={i18n.t('common.cancel')}
+                  disabled={forceDisabled}
+                  overlayStyle={{ maxWidth: 320 }}
+                >
+                  <span>
+                    <Button
+                      icon={<ThunderboltOutlined />}
+                      disabled={forceDisabled}
+                      size="small"
+                      className="admin-table-action-btn"
+                      aria-label={i18n.t('inventory.forceMagazineChangeButton')}
+                    />
+                  </span>
+                </Popconfirm>
+              </Tooltip>
             </div>
           );
         },
@@ -373,10 +391,11 @@ export function useInventoryTableColumns({
       setEditValues,
       componentsConfig,
       magazineChangeDisabled,
+      blockMagazineForce,
       onEdit,
       onSave,
       onCancelEdit,
-      onOpenMagazineChange,
+      onForceMagazineChange,
     ]
   );
 }

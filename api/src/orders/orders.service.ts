@@ -285,7 +285,18 @@ export class OrdersService {
         : 0;
     }
 
-    await this.mcClient.confirmMagazineChange(changeFlags);
+    try {
+      await this.mcClient.confirmMagazineChange(changeFlags);
+    } catch (error: any) {
+      this.logger.warn(
+        `MC did not finish magazine change for order ${order.orderNumber}: ${
+          error?.message ?? String(error)
+        }`
+      );
+      throw new BadRequestException(
+        'MC did not complete magazine change. Please retry magazine reset.'
+      );
+    }
 
     const changedPartTypes = new Set<string>();
     for (const [partType, partCfg] of Object.entries(cfg.parts)) {
@@ -376,14 +387,14 @@ export class OrdersService {
 
     try {
       const dispensed = await this.mcClient.sendOrderToMc(remainingMap);
-      await this.applyDispensedToInventoryAndOrder(orderId, items, dispensed);
+      await this.applyDispensedToInventoryAndOrder(orderId, dispensed);
     } catch (error: any) {
       if (error?.message?.includes('MC_MAGAZINE_CHANGE_NEEDED')) {
         this.logger.warn(
           `Magazine change needed again during continuation of order ${orderId}`
         );
         const dispensed = this.parseDispensedFromError(error.message);
-        await this.storeDispensedQuantities(orderId, items, dispensed);
+        await this.storeDispensedQuantities(orderId, dispensed);
         await this.prisma.order.update({
           where: { id: orderId },
           data: {
@@ -494,7 +505,18 @@ export class OrdersService {
         : 0;
     }
 
-    await this.mcClient.confirmMagazineChange(changeFlags);
+    try {
+      await this.mcClient.confirmMagazineChange(changeFlags);
+    } catch (error: any) {
+      this.logger.warn(
+        `Standalone magazine change did not complete: ${
+          error?.message ?? String(error)
+        }`
+      );
+      throw new BadRequestException(
+        'MC did not complete magazine change. Please retry.'
+      );
+    }
 
     const changedPartTypes = new Set<string>();
     for (const [partType, partCfg] of Object.entries(cfg.parts)) {
@@ -669,12 +691,12 @@ export class OrdersService {
       }
 
       const dispensed = await this.mcClient.sendOrderToMc(orderMap);
-      await this.applyDispensedToInventoryAndOrder(orderId, items, dispensed);
+      await this.applyDispensedToInventoryAndOrder(orderId, dispensed);
     } catch (error: any) {
       if (error?.message?.includes('MC_MAGAZINE_CHANGE_NEEDED')) {
         this.logger.warn(`Magazine change needed during order ${orderId}`);
         const dispensed = this.parseDispensedFromError(error.message);
-        await this.storeDispensedQuantities(orderId, items, dispensed);
+        await this.storeDispensedQuantities(orderId, dispensed);
         await this.prisma.order.update({
           where: { id: orderId },
           data: {
@@ -694,24 +716,74 @@ export class OrdersService {
     }
   }
 
+  private computeFifoDeltas(
+    items: OrderItemRef[],
+    dispensed: DispensedAmounts
+  ): Map<string, number> {
+    const byType = new Map<string, OrderItemRef[]>();
+    for (const item of items) {
+      const list = byType.get(item.componentType) ?? [];
+      list.push(item);
+      byType.set(item.componentType, list);
+    }
+    for (const list of byType.values()) {
+      list.sort((a, b) => a.orderItemId.localeCompare(b.orderItemId));
+    }
+
+    const deltas = new Map<string, number>();
+
+    for (const [type, raw] of Object.entries(dispensed)) {
+      const cumulative =
+        typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : 0;
+      if (cumulative <= 0) continue;
+
+      const lines = byType.get(type) ?? [];
+      let remaining = cumulative;
+      for (const line of lines) {
+        if (remaining <= 0) break;
+        const headroom = Math.max(0, line.quantity - line.dispensedQuantity);
+        const delta = Math.min(headroom, remaining);
+        if (delta > 0) {
+          deltas.set(
+            line.orderItemId,
+            (deltas.get(line.orderItemId) ?? 0) + delta
+          );
+          remaining -= delta;
+        }
+      }
+    }
+
+    return deltas;
+  }
+
   private async applyDispensedToInventoryAndOrder(
     orderId: string,
-    items: OrderItemRef[],
     dispensed: DispensedAmounts
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       let totalDispensedThisCycle = 0;
 
-      const dispensedByType = new Map<string, number>();
-      for (const [type, amount] of Object.entries(dispensed) as Array<
-        [string, number]
-      >) {
-        dispensedByType.set(type, amount ?? 0);
-      }
+      const rows = await tx.orderItem.findMany({
+        where: { orderId },
+        include: { component: true },
+        orderBy: { id: 'asc' },
+      });
 
-      for (const item of items) {
-        const amount = dispensedByType.get(item.componentType) ?? 0;
+      const items: OrderItemRef[] = rows.map((row) => ({
+        orderItemId: row.id,
+        componentId: row.componentId,
+        componentType: row.component.type,
+        quantity: row.quantity,
+        dispensedQuantity: row.dispensedQuantity,
+      }));
+
+      const deltas = this.computeFifoDeltas(items, dispensed);
+
+      for (const [orderItemId, amount] of deltas) {
         if (amount <= 0) continue;
+
+        const item = items.find((i) => i.orderItemId === orderItemId);
+        if (!item) continue;
 
         const inventory = await tx.inventory.findUnique({
           where: { componentId: item.componentId },
@@ -734,7 +806,7 @@ export class OrdersService {
         });
 
         await tx.orderItem.update({
-          where: { id: item.orderItemId },
+          where: { id: orderItemId },
           data: { dispensedQuantity: { increment: amount } },
         });
 
@@ -769,44 +841,62 @@ export class OrdersService {
 
   private async storeDispensedQuantities(
     orderId: string,
-    items: OrderItemRef[],
     dispensed: DispensedAmounts
   ): Promise<void> {
+    const rows = await this.prisma.orderItem.findMany({
+      where: { orderId },
+      include: { component: true },
+      orderBy: { id: 'asc' },
+    });
+
+    const items: OrderItemRef[] = rows.map((row) => ({
+      orderItemId: row.id,
+      componentId: row.componentId,
+      componentType: row.component.type,
+      quantity: row.quantity,
+      dispensedQuantity: row.dispensedQuantity,
+    }));
+
+    const deltas = this.computeFifoDeltas(items, dispensed);
     let totalDispensedThisCycle = 0;
-    for (const item of items) {
-      const amount = dispensed[item.componentType] ?? 0;
-      if (amount > 0) {
-        await this.prisma.orderItem.update({
-          where: { id: item.orderItemId },
-          data: { dispensedQuantity: { increment: amount } },
-        });
 
-        const inventory = await this.prisma.inventory.findUnique({
-          where: { componentId: item.componentId },
-        });
-        if (inventory) {
-          await this.prisma.inventory.update({
-            where: { id: inventory.id },
-            data: {
-              totalStock: Math.max(0, inventory.totalStock - amount),
-              currentMagazineStock: Math.max(
-                0,
-                inventory.currentMagazineStock - amount
-              ),
-            },
-          });
-          this.logger.log(
-            `${item.componentType}: dispensed ${amount} (pre-change segment), ` +
-              `inventory ${inventory.currentMagazineStock} → ${Math.max(
-                0,
-                inventory.currentMagazineStock - amount
-              )}`
-          );
-        }
+    for (const [orderItemId, amount] of deltas) {
+      if (amount <= 0) continue;
 
-        totalDispensedThisCycle += amount;
+      const item = items.find((i) => i.orderItemId === orderItemId);
+      if (!item) continue;
+
+      await this.prisma.orderItem.update({
+        where: { id: orderItemId },
+        data: { dispensedQuantity: { increment: amount } },
+      });
+
+      const inventory = await this.prisma.inventory.findUnique({
+        where: { componentId: item.componentId },
+      });
+      if (inventory) {
+        await this.prisma.inventory.update({
+          where: { id: inventory.id },
+          data: {
+            totalStock: Math.max(0, inventory.totalStock - amount),
+            currentMagazineStock: Math.max(
+              0,
+              inventory.currentMagazineStock - amount
+            ),
+          },
+        });
+        this.logger.log(
+          `${item.componentType}: dispensed ${amount} (pre-change segment), ` +
+            `inventory ${inventory.currentMagazineStock} → ${Math.max(
+              0,
+              inventory.currentMagazineStock - amount
+            )}`
+        );
       }
+
+      totalDispensedThisCycle += amount;
     }
+
     if (totalDispensedThisCycle > 0) {
       await this.prisma.order.update({
         where: { id: orderId },

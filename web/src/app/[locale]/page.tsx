@@ -7,20 +7,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import OrderForm from '@/components/OrderForm';
 import QueueStatus from '@/components/QueueStatus';
 import ComponentsDisplay from '@/components/ComponentsDisplay';
+import MagazineChangeFlowModals from '@/components/magazine/MagazineChangeFlowModals';
 import { i18n } from '@/lib/i18n';
 import { useDemo } from '@/contexts/DemoContext';
 import { spacing } from '@/styles/spacing';
 import { useApi } from '@/contexts/ApiContext';
+import { MC_STATUS_CODES } from '@/lib/magazineChangePhase';
 
-const STATUS_CODES = {
-  NO_CLIENT: '0000',
-  WAIT_ORDER: '0001',
-  DISPENSING: '0010',
-  FINISHED: '0011',
-  MAG_CHANGE: '0100',
-  CALIBRATING: '0101',
-} as const;
-const isProcessing = (status: string) => status === STATUS_CODES.DISPENSING;
+const isProcessing = (status: string) => status === MC_STATUS_CODES.DISPENSING;
 
 function getNormalPathFromDemo(pathname: string): string {
   if (pathname === '/demo' || pathname.match(/\/[a-z]{2}\/demo\/home/))
@@ -42,6 +36,7 @@ export default function Home() {
     cancelOrder,
     magazineReset,
     standaloneMagazineChange,
+    startMagazineChange,
     componentsConfig,
   } = useApi();
 
@@ -50,6 +45,7 @@ export default function Home() {
   const [loadingQuickOrder, setLoadingQuickOrder] = useState(false);
   const [loadingStandaloneMagChange, setLoadingStandaloneMagChange] =
     useState(false);
+  const [loadingStartMagChange, setLoadingStartMagChange] = useState(false);
 
   const [quickMagazineChangePromptOpen, setQuickMagazineChangePromptOpen] =
     useState(false);
@@ -58,7 +54,7 @@ export default function Home() {
   const [pendingQuickOrderCount, setPendingQuickOrderCount] = useState(1);
 
   const [demoMcStatus, setDemoMcStatus] = useState<string>(
-    STATUS_CODES.WAIT_ORDER
+    MC_STATUS_CODES.WAIT_ORDER
   );
   const [demoMcStatusData, setDemoMcStatusData] = useState<any>(null);
   const [demoCurrentOrder, setDemoCurrentOrder] = useState<any>(null);
@@ -79,14 +75,39 @@ export default function Home() {
 
   const effectiveMcStatus = isDemo
     ? demoMcStatus
-    : mcStatus ?? STATUS_CODES.WAIT_ORDER;
+    : mcStatus ?? MC_STATUS_CODES.WAIT_ORDER;
   const effectiveMcStatusData = isDemo ? demoMcStatusData : mcStatusData;
+
+  const handleMcStartMagazineChange = async () => {
+    if (isDemo) return;
+    setLoadingStartMagChange(true);
+    try {
+      await startMagazineChange();
+    } catch (e) {
+      console.error('Start magazine change failed:', e);
+      message.error(i18n.t('home.magazineChangeStartFailed'));
+    } finally {
+      setLoadingStartMagChange(false);
+    }
+  };
+
+  const handleStandaloneMagazineConfirm = async () => {
+    setLoadingStandaloneMagChange(true);
+    try {
+      await standaloneMagazineChange();
+    } catch (e) {
+      console.error('Standalone magazine change failed:', e);
+      message.error(i18n.t('home.standaloneMagazineChangeFailed'));
+    } finally {
+      setLoadingStandaloneMagChange(false);
+    }
+  };
 
   const handleOrderSuccess = () => {
     setIsModalOpen(false);
     if (isDemo) {
       setTimeout(() => {
-        setDemoMcStatus(STATUS_CODES.FINISHED);
+        setDemoMcStatus(MC_STATUS_CODES.FINISHED);
         setDemoCurrentOrder({
           status: 'COMPLETED',
           orderNumber: 'DEMO-' + Date.now(),
@@ -135,11 +156,11 @@ export default function Home() {
 
     if (isDemo) {
       setQuickOrderCount(1);
-      setDemoMcStatus(STATUS_CODES.DISPENSING);
+      setDemoMcStatus(MC_STATUS_CODES.DISPENSING);
       setTimeout(() => {
-        setDemoMcStatus(STATUS_CODES.FINISHED);
+        setDemoMcStatus(MC_STATUS_CODES.FINISHED);
         setDemoCurrentOrder({
-          status: STATUS_CODES.FINISHED,
+          status: MC_STATUS_CODES.FINISHED,
           orderNumber: 'DEMO-' + Date.now(),
         });
       }, 3000);
@@ -280,144 +301,22 @@ export default function Home() {
           />
         )}
 
-        <Modal
-          title={i18n.t('home.magazineChangeRequiredTitle')}
-          open={
-            !!currentOrder && currentOrder.status === 'MAGAZINE_CHANGE_NEEDED'
-          }
-          onCancel={() => {}}
-          footer={
-            <Space>
-              <Button
-                danger
-                onClick={async () => {
-                  if (isDemo) {
-                    setDemoCurrentOrder(null);
-                    return;
-                  }
-
-                  if (!currentOrder?.id) return;
-                  try {
-                    await cancelOrder(currentOrder.id);
-                  } catch (e) {
-                    console.error('Cancel order failed:', e);
-                    message.error(i18n.t('home.cancelOrderFailed'));
-                  }
-                }}
-              >
-                {i18n.t('home.cancelOrderButton')}
-              </Button>
-              <Button
-                type="primary"
-                disabled={!isDemo && actualMcConnected === false}
-                onClick={async () => {
-                  if (!currentOrder?.id) return;
-                  if (isDemo) {
-                    setDemoCurrentOrder(null);
-                    return;
-                  }
-
-                  if (actualMcConnected === false) {
-                    return;
-                  }
-
-                  await magazineReset(currentOrder.id);
-                }}
-              >
-                {i18n.t('home.magazineChangedButton')}
-              </Button>
-            </Space>
-          }
-          destroyOnHidden
-        >
-          <p style={{ marginBottom: spacing.sm }}>
-            {i18n.t('home.magazineEmptyDuringProcessing')}
-          </p>
-          {(() => {
-            const parts = componentsConfig?.parts ?? {};
-            const affectedPartTypes = Object.entries(parts)
-              .filter(
-                ([, cfg]) =>
-                  !!effectiveMcStatusData?.[
-                    `magazin${cfg.mc.magazinIndex}_wechseln`
-                  ]
-              )
-              .map(([type]) => type);
-
-            if (affectedPartTypes.length === 0) return null;
-
-            const names = affectedPartTypes
-              .map((type) => parts[type]?.displayName ?? type)
-              .join(', ');
-
-            return (
-              <div style={{ fontSize: 12, color: '#666' }}>
-                {i18n.t('home.affectedPartLabel')} <b>{names}</b>
-              </div>
-            );
-          })()}
-        </Modal>
-
-        <Modal
-          title="Magazinwechsel erforderlich"
-          open={
-            !isDemo &&
-            !!queueStatus?.mcNeedsMagazineChange &&
-            currentOrder?.status !== 'MAGAZINE_CHANGE_NEEDED'
-          }
-          onCancel={() => {}}
-          closable={false}
-          maskClosable={false}
-          footer={
-            <Button
-              type="primary"
-              loading={loadingStandaloneMagChange}
-              disabled={actualMcConnected === false}
-              onClick={async () => {
-                setLoadingStandaloneMagChange(true);
-                try {
-                  await standaloneMagazineChange();
-                } catch (e) {
-                  console.error('Standalone magazine change failed:', e);
-                  message.error('Magazinwechsel fehlgeschlagen');
-                } finally {
-                  setLoadingStandaloneMagChange(false);
-                }
-              }}
-            >
-              Magazin gewechselt
-            </Button>
-          }
-          destroyOnHidden
-        >
-          <p style={{ marginBottom: spacing.sm }}>
-            Der Automat wartet auf einen Magazinwechsel. Bitte wechsle das
-            Magazin und bestätige anschließend.
-          </p>
-          {(() => {
-            const parts = componentsConfig?.parts ?? {};
-            const affectedPartTypes = Object.entries(parts)
-              .filter(
-                ([, cfg]) =>
-                  !!effectiveMcStatusData?.[
-                    `magazin${cfg.mc.magazinIndex}_wechseln`
-                  ]
-              )
-              .map(([type]) => type);
-
-            if (affectedPartTypes.length === 0) return null;
-
-            const names = affectedPartTypes
-              .map((type) => parts[type]?.displayName ?? type)
-              .join(', ');
-
-            return (
-              <div style={{ fontSize: 12, color: '#666' }}>
-                {i18n.t('home.affectedPartLabel')} <b>{names}</b>
-              </div>
-            );
-          })()}
-        </Modal>
+        <MagazineChangeFlowModals
+          isDemo={isDemo}
+          activeOrder={activeOrder}
+          currentOrder={currentOrder}
+          setDemoCurrentOrder={setDemoCurrentOrder}
+          queueStatus={queueStatus}
+          componentsConfig={componentsConfig}
+          effectiveMcStatusData={effectiveMcStatusData}
+          actualMcConnected={actualMcConnected !== false}
+          loadingStandaloneMagChange={loadingStandaloneMagChange}
+          loadingStartMagChange={loadingStartMagChange}
+          cancelOrder={cancelOrder}
+          magazineReset={magazineReset}
+          onMcStartMagazineChange={handleMcStartMagazineChange}
+          onStandaloneMagazineConfirm={handleStandaloneMagazineConfirm}
+        />
 
         {currentOrder && currentOrder.status === 'ORDER_READY' && (
           <Alert

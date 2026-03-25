@@ -76,6 +76,18 @@ export class OrdersController {
     return this.ordersService.standaloneMagazineChange();
   }
 
+  @Post('mc/magazine-change/start')
+  async startMagazineChange() {
+    await this.mcClientService.startMagazineChange();
+    return { ok: true };
+  }
+
+  @Post('mc/magazine-change/force')
+  async forceStartMagazineChange(@Body() body: { part: number }) {
+    await this.mcClientService.forceStartMagazineChange(body.part);
+    return { ok: true };
+  }
+
   @Post('mc/acknowledge')
   async acknowledgeMcCompletion() {
     const { activeOrder } = await this.ordersService.getQueueStatus();
