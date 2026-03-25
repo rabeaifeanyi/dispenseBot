@@ -98,7 +98,7 @@ docker compose build && docker compose up -d
 
 ---
 
-## Local Development (without Docker)
+## Local Web Development
 
 For active development, API and frontend can run directly on your machine — only the database runs in Docker.
 
