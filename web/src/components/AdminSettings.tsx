@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, Switch, Row, Col, message } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import { spacing } from '@/styles/spacing';
+import { i18n } from '@/lib/i18n';
 
 const SETTINGS_KEY = 'admin_settings';
 
@@ -41,7 +42,7 @@ export default function AdminSettings() {
     };
     setSettings(newSettings);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-    message.success('Einstellung gespeichert');
+    message.success(i18n.t('adminSettings.saved'));
   };
 
   if (loading) {
@@ -53,7 +54,7 @@ export default function AdminSettings() {
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
           <SettingOutlined />
-          <span>Einstellungen</span>
+          <span>{i18n.t('adminSettings.title')}</span>
         </div>
       }
       style={{ marginTop: spacing.md }}
@@ -69,10 +70,10 @@ export default function AdminSettings() {
           >
             <div>
               <div style={{ fontWeight: 500, marginBottom: spacing.xs / 2 }}>
-                Magazinwechsel-Button auf Bestellseite
+                {i18n.t('adminSettings.magazineSwitchTitle')}
               </div>
               <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-                Zeigt den Magazinwechsel-Button auf der Bestellseite an
+                {i18n.t('adminSettings.magazineSwitchDescription')}
               </div>
             </div>
             <Switch

@@ -9,7 +9,6 @@ import { sortByPartOrder } from '@/lib/componentOrder';
 import { spacing } from '@/styles/spacing';
 import { useApi, InventoryItem } from '@/contexts/ApiContext';
 import { buildInventurInitialValues } from './inventory/inventoryUtils';
-import MagazineChangeModal from './inventory/MagazineChangeModal';
 import InventurModal from './inventory/InventurModal';
 import { useInventoryTableColumns } from './inventory/inventoryTableColumns';
 import InventoryDashboardStyles from './inventory/InventoryDashboardStyles';
@@ -31,6 +30,7 @@ export default function InventoryDashboard({
     mcConnected,
     componentsConfig,
     forceStartMagazineChange,
+    queueStatus,
   } = useApi();
   const [inventory, setInventory] = useState<InventoryItem[]>(apiInventory);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,8 +43,6 @@ export default function InventoryDashboard({
     maxOrderQuantity: 2,
   });
   const [messageApi, contextHolder] = message.useMessage();
-  const [magazineChangeModalRecord, setMagazineChangeModalRecord] =
-    useState<InventoryItem | null>(null);
   const [inventurOpenLocal, setInventurOpenLocal] = useState(false);
   const [inventurLooseValues, setInventurLooseValues] = useState<
     Record<string, number>
@@ -72,6 +70,8 @@ export default function InventoryDashboard({
   }, [apiInventory, componentsConfig?.order]);
 
   const magazineChangeDisabled = mcConnected === false;
+  const blockMagazineForce =
+    queueStatus?.activeOrder?.status === 'ORDER_READY';
 
   const handleEdit = useCallback((record: InventoryItem) => {
     setEditingId(record.componentId);
@@ -152,39 +152,6 @@ export default function InventoryDashboard({
     setInventurOpenLocal(true);
   }, []);
 
-  const handleMagazineChange = useCallback(
-    async (record: InventoryItem, partialFill?: number) => {
-      if (magazineChangeDisabled) {
-        messageApi.warning(i18n.t('inventory.magazineChangeDisabled'));
-        return;
-      }
-      const newMagazineStock = partialFill ?? record.magazineSize;
-
-      try {
-        await updateInventoryItem(record.componentId, {
-          currentMagazineStock: newMagazineStock,
-        });
-        messageApi.success(
-          i18n
-            .t('inventory.magazineChangeSuccess')
-            .replace('{size}', String(newMagazineStock))
-        );
-      } catch (error) {
-        console.error('Failed to change magazine:', error);
-        messageApi.error(i18n.t('inventory.updateError'));
-      }
-    },
-    [magazineChangeDisabled, messageApi, updateInventoryItem]
-  );
-
-  const handleMagazineChangeConfirm = useCallback(() => {
-    if (magazineChangeDisabled) return;
-    if (magazineChangeModalRecord) {
-      void handleMagazineChange(magazineChangeModalRecord);
-      setMagazineChangeModalRecord(null);
-    }
-  }, [magazineChangeDisabled, magazineChangeModalRecord, handleMagazineChange]);
-
   useEffect(() => {
     if (!inventurOpen) return;
     const { loose, full } = buildInventurInitialValues(inventory);
@@ -225,13 +192,9 @@ export default function InventoryDashboard({
     setInventurOpen,
   ]);
 
-  const handleOpenMagazineChange = useCallback((record: InventoryItem) => {
-    setMagazineChangeModalRecord(record);
-  }, []);
-
   const handleForceMagazineChange = useCallback(
     async (record: InventoryItem) => {
-      if (magazineChangeDisabled) return;
+      if (magazineChangeDisabled || blockMagazineForce) return;
       const partCfg =
         componentsConfig?.parts?.[record.component.type];
       const part = partCfg?.mc?.magazinIndex;
@@ -247,7 +210,13 @@ export default function InventoryDashboard({
         messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
       }
     },
-    [magazineChangeDisabled, componentsConfig, forceStartMagazineChange, messageApi]
+    [
+      magazineChangeDisabled,
+      blockMagazineForce,
+      componentsConfig,
+      forceStartMagazineChange,
+      messageApi,
+    ]
   );
 
   const columns = useInventoryTableColumns({
@@ -256,24 +225,16 @@ export default function InventoryDashboard({
     setEditValues,
     componentsConfig,
     magazineChangeDisabled,
+    blockMagazineForce,
     onEdit: handleEdit,
     onSave: handleSave,
     onCancelEdit: handleCancelEdit,
-    onOpenMagazineChange: handleOpenMagazineChange,
     onForceMagazineChange: handleForceMagazineChange,
   });
 
   return (
     <div>
       {contextHolder}
-      <MagazineChangeModal
-        record={magazineChangeModalRecord}
-        open={!!magazineChangeModalRecord}
-        componentsConfig={componentsConfig}
-        magazineChangeDisabled={magazineChangeDisabled}
-        onOk={handleMagazineChangeConfirm}
-        onCancel={() => setMagazineChangeModalRecord(null)}
-      />
       <InventurModal
         open={inventurOpen}
         confirmLoading={inventurSaving}

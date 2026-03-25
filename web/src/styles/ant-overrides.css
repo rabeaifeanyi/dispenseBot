@@ -37,6 +37,28 @@ body {
   border-color: #d9d9d9 !important;
 }
 
+.ant-btn.refill-btn.ant-btn-disabled,
+.ant-btn.refill-btn:disabled {
+  color: rgba(0, 0, 0, 0.25) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: #d9d9d9 !important;
+  cursor: not-allowed !important;
+}
+
+.ant-btn.refill-btn.ant-btn-disabled:hover,
+.ant-btn.refill-btn.ant-btn-disabled:focus,
+.ant-btn.refill-btn:disabled:hover,
+.ant-btn.refill-btn:disabled:focus {
+  color: rgba(0, 0, 0, 0.25) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: #d9d9d9 !important;
+}
+
+.ant-btn.refill-btn.ant-btn-disabled .anticon,
+.ant-btn.refill-btn:disabled .anticon {
+  color: rgba(0, 0, 0, 0.25) !important;
+}
+
 .ant-btn.refill-btn .anticon {
   font-size: 12px;
 }

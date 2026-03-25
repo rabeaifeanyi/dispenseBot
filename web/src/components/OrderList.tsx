@@ -11,7 +11,7 @@ import { i18n } from '@/lib/i18n';
 import { spacing } from '@/styles/spacing';
 import { useApi, Order } from '@/contexts/ApiContext';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const statusConfig: Record<
   string,
@@ -87,13 +87,20 @@ export default function OrderList({ demoMode = false }: OrderListProps) {
   if (displayOrders.length === 0) {
     return (
       <div style={{ paddingTop: spacing.xl, paddingBottom: spacing.xl }}>
+        <Title level={3} style={{ marginBottom: spacing.md }}>
+          {i18n.t('orders.title')}
+        </Title>
         <Empty description={i18n.t('orders.noOrders')} />
       </div>
     );
   }
 
   return (
-    <List
+    <>
+      <Title level={3} style={{ marginBottom: spacing.md }}>
+        {i18n.t('orders.title')}
+      </Title>
+      <List
       dataSource={displayOrders}
       split={false}
       renderItem={(order) => {
@@ -185,5 +192,6 @@ export default function OrderList({ demoMode = false }: OrderListProps) {
         );
       }}
     />
+    </>
   );
 }

@@ -7,37 +7,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import OrderForm from '@/components/OrderForm';
 import QueueStatus from '@/components/QueueStatus';
 import ComponentsDisplay from '@/components/ComponentsDisplay';
+import MagazineChangeFlowModals from '@/components/magazine/MagazineChangeFlowModals';
 import { i18n } from '@/lib/i18n';
 import { useDemo } from '@/contexts/DemoContext';
 import { spacing } from '@/styles/spacing';
 import { useApi } from '@/contexts/ApiContext';
+import { MC_STATUS_CODES } from '@/lib/magazineChangePhase';
 
-const STATUS_CODES = {
-  NO_CLIENT: '0000',
-  WAIT_ORDER: '0001',
-  DISPENSING: '0010',
-  FINISHED: '0011',
-  MAG_CHANGE: '0100',
-  CALIBRATING: '0101',
-} as const;
-const isProcessing = (status: string) => status === STATUS_CODES.DISPENSING;
-
-type MagChangeUiPhase = 'WAIT_START' | 'CALIBRATING' | 'CONFIRM_INSERT' | 'NONE';
-
-function getMagChangeUiPhase(
-  mcStatusData: { status_bin?: unknown; warte_auf_magazin_einsetzen?: unknown } | null
-): MagChangeUiPhase {
-  const statusBin =
-    typeof mcStatusData?.status_bin === 'string' ? mcStatusData.status_bin : null;
-  const waitFlag = mcStatusData?.warte_auf_magazin_einsetzen;
-  const waitingForInsert = waitFlag === 1 || waitFlag === true;
-
-  if (statusBin === STATUS_CODES.CALIBRATING) return 'CALIBRATING';
-  if (statusBin === STATUS_CODES.MAG_CHANGE) {
-    return waitingForInsert ? 'CONFIRM_INSERT' : 'WAIT_START';
-  }
-  return 'NONE';
-}
+const isProcessing = (status: string) => status === MC_STATUS_CODES.DISPENSING;
 
 function getNormalPathFromDemo(pathname: string): string {
   if (pathname === '/demo' || pathname.match(/\/[a-z]{2}\/demo\/home/))
@@ -77,7 +54,7 @@ export default function Home() {
   const [pendingQuickOrderCount, setPendingQuickOrderCount] = useState(1);
 
   const [demoMcStatus, setDemoMcStatus] = useState<string>(
-    STATUS_CODES.WAIT_ORDER
+    MC_STATUS_CODES.WAIT_ORDER
   );
   const [demoMcStatusData, setDemoMcStatusData] = useState<any>(null);
   const [demoCurrentOrder, setDemoCurrentOrder] = useState<any>(null);
@@ -98,15 +75,39 @@ export default function Home() {
 
   const effectiveMcStatus = isDemo
     ? demoMcStatus
-    : mcStatus ?? STATUS_CODES.WAIT_ORDER;
+    : mcStatus ?? MC_STATUS_CODES.WAIT_ORDER;
   const effectiveMcStatusData = isDemo ? demoMcStatusData : mcStatusData;
-  const magChangeUiPhase = getMagChangeUiPhase(effectiveMcStatusData);
+
+  const handleMcStartMagazineChange = async () => {
+    if (isDemo) return;
+    setLoadingStartMagChange(true);
+    try {
+      await startMagazineChange();
+    } catch (e) {
+      console.error('Start magazine change failed:', e);
+      message.error(i18n.t('home.magazineChangeStartFailed'));
+    } finally {
+      setLoadingStartMagChange(false);
+    }
+  };
+
+  const handleStandaloneMagazineConfirm = async () => {
+    setLoadingStandaloneMagChange(true);
+    try {
+      await standaloneMagazineChange();
+    } catch (e) {
+      console.error('Standalone magazine change failed:', e);
+      message.error(i18n.t('home.standaloneMagazineChangeFailed'));
+    } finally {
+      setLoadingStandaloneMagChange(false);
+    }
+  };
 
   const handleOrderSuccess = () => {
     setIsModalOpen(false);
     if (isDemo) {
       setTimeout(() => {
-        setDemoMcStatus(STATUS_CODES.FINISHED);
+        setDemoMcStatus(MC_STATUS_CODES.FINISHED);
         setDemoCurrentOrder({
           status: 'COMPLETED',
           orderNumber: 'DEMO-' + Date.now(),
@@ -155,11 +156,11 @@ export default function Home() {
 
     if (isDemo) {
       setQuickOrderCount(1);
-      setDemoMcStatus(STATUS_CODES.DISPENSING);
+      setDemoMcStatus(MC_STATUS_CODES.DISPENSING);
       setTimeout(() => {
-        setDemoMcStatus(STATUS_CODES.FINISHED);
+        setDemoMcStatus(MC_STATUS_CODES.FINISHED);
         setDemoCurrentOrder({
-          status: STATUS_CODES.FINISHED,
+          status: MC_STATUS_CODES.FINISHED,
           orderNumber: 'DEMO-' + Date.now(),
         });
       }, 3000);
@@ -300,202 +301,22 @@ export default function Home() {
           />
         )}
 
-        <Modal
-          title={i18n.t('home.magazineChangeRequiredTitle')}
-          open={
-            !!currentOrder && currentOrder.status === 'MAGAZINE_CHANGE_NEEDED'
-          }
-          onCancel={() => {}}
-          closable={false}
-          maskClosable={false}
-          footer={
-            <Space>
-              <Button
-                danger
-                onClick={async () => {
-                  if (isDemo) {
-                    setDemoCurrentOrder(null);
-                    return;
-                  }
-
-                  if (!currentOrder?.id) return;
-                  try {
-                    await cancelOrder(currentOrder.id);
-                  } catch (e) {
-                    console.error('Cancel order failed:', e);
-                    message.error(i18n.t('home.cancelOrderFailed'));
-                  }
-                }}
-              >
-                {i18n.t('home.cancelOrderButton')}
-              </Button>
-              {magChangeUiPhase === 'WAIT_START' && (
-                <Button
-                  type="default"
-                  loading={loadingStartMagChange}
-                  disabled={!isDemo && actualMcConnected === false}
-                  onClick={async () => {
-                    if (isDemo) return;
-                    setLoadingStartMagChange(true);
-                    try {
-                      await startMagazineChange();
-                    } catch (e) {
-                      console.error('Start magazine change failed:', e);
-                      message.error(i18n.t('home.magazineChangeStartFailed'));
-                    } finally {
-                      setLoadingStartMagChange(false);
-                    }
-                  }}
-                >
-                  {i18n.t('home.magazineChangeStartButton')}
-                </Button>
-              )}
-              <Button
-                type="primary"
-                disabled={
-                  !isDemo &&
-                  (actualMcConnected === false ||
-                    magChangeUiPhase !== 'CONFIRM_INSERT')
-                }
-                onClick={async () => {
-                  if (!currentOrder?.id) return;
-                  if (isDemo) {
-                    setDemoCurrentOrder(null);
-                    return;
-                  }
-
-                  if (actualMcConnected === false) {
-                    return;
-                  }
-
-                  await magazineReset(currentOrder.id);
-                }}
-              >
-                {i18n.t('home.magazineChangedButton')}
-              </Button>
-            </Space>
-          }
-          destroyOnHidden
-        >
-          <p style={{ marginBottom: spacing.sm }}>
-            {magChangeUiPhase === 'WAIT_START'
-              ? i18n.t('home.magazineChangeWaitStart')
-              : magChangeUiPhase === 'CALIBRATING'
-                ? i18n.t('home.magazineChangeCalibrating')
-                : i18n.t('home.magazineEmptyDuringProcessing')}
-          </p>
-          {(() => {
-            const parts = componentsConfig?.parts ?? {};
-            const affectedPartTypes = Object.entries(parts)
-              .filter(
-                ([, cfg]) =>
-                  !!effectiveMcStatusData?.[
-                    `magazin${cfg.mc.magazinIndex}_wechseln`
-                  ]
-              )
-              .map(([type]) => type);
-
-            if (affectedPartTypes.length === 0) return null;
-
-            const names = affectedPartTypes
-              .map((type) => parts[type]?.displayName ?? type)
-              .join(', ');
-
-            return (
-              <div style={{ fontSize: 12, color: '#666' }}>
-                {i18n.t('home.affectedPartLabel')} <b>{names}</b>
-              </div>
-            );
-          })()}
-        </Modal>
-
-        <Modal
-          title="Magazinwechsel erforderlich"
-          open={
-            !isDemo &&
-            !!queueStatus?.mcNeedsMagazineChange &&
-            currentOrder?.status !== 'MAGAZINE_CHANGE_NEEDED'
-          }
-          onCancel={() => {}}
-          closable={false}
-          maskClosable={false}
-          footer={
-            <Space>
-              {magChangeUiPhase === 'WAIT_START' && (
-                <Button
-                  type="default"
-                  loading={loadingStartMagChange}
-                  disabled={actualMcConnected === false}
-                  onClick={async () => {
-                    setLoadingStartMagChange(true);
-                    try {
-                      await startMagazineChange();
-                    } catch (e) {
-                      console.error('Start magazine change failed:', e);
-                      message.error(i18n.t('home.magazineChangeStartFailed'));
-                    } finally {
-                      setLoadingStartMagChange(false);
-                    }
-                  }}
-                >
-                  {i18n.t('home.magazineChangeStartButton')}
-                </Button>
-              )}
-              {magChangeUiPhase === 'CONFIRM_INSERT' && (
-                <Button
-                  type="primary"
-                  loading={loadingStandaloneMagChange}
-                  disabled={actualMcConnected === false}
-                  onClick={async () => {
-                    setLoadingStandaloneMagChange(true);
-                    try {
-                      await standaloneMagazineChange();
-                    } catch (e) {
-                      console.error('Standalone magazine change failed:', e);
-                      message.error('Magazinwechsel fehlgeschlagen');
-                    } finally {
-                      setLoadingStandaloneMagChange(false);
-                    }
-                  }}
-                >
-                  Magazin gewechselt
-                </Button>
-              )}
-            </Space>
-          }
-          destroyOnHidden
-        >
-          <p style={{ marginBottom: spacing.sm }}>
-            {magChangeUiPhase === 'WAIT_START'
-              ? 'Der Automat wartet auf den Start des Magazinwechsels. Drücke die Taste am Automaten, um den Wechsel zu starten.'
-              : magChangeUiPhase === 'CALIBRATING'
-                ? 'Kalibrierung läuft… bitte warten.'
-                : 'Der Automat wartet auf die Bestätigung. Bitte Magazin einsetzen und bestätigen.'}
-          </p>
-          {(() => {
-            const parts = componentsConfig?.parts ?? {};
-            const affectedPartTypes = Object.entries(parts)
-              .filter(
-                ([, cfg]) =>
-                  !!effectiveMcStatusData?.[
-                    `magazin${cfg.mc.magazinIndex}_wechseln`
-                  ]
-              )
-              .map(([type]) => type);
-
-            if (affectedPartTypes.length === 0) return null;
-
-            const names = affectedPartTypes
-              .map((type) => parts[type]?.displayName ?? type)
-              .join(', ');
-
-            return (
-              <div style={{ fontSize: 12, color: '#666' }}>
-                {i18n.t('home.affectedPartLabel')} <b>{names}</b>
-              </div>
-            );
-          })()}
-        </Modal>
+        <MagazineChangeFlowModals
+          isDemo={isDemo}
+          activeOrder={activeOrder}
+          currentOrder={currentOrder}
+          setDemoCurrentOrder={setDemoCurrentOrder}
+          queueStatus={queueStatus}
+          componentsConfig={componentsConfig}
+          effectiveMcStatusData={effectiveMcStatusData}
+          actualMcConnected={actualMcConnected !== false}
+          loadingStandaloneMagChange={loadingStandaloneMagChange}
+          loadingStartMagChange={loadingStartMagChange}
+          cancelOrder={cancelOrder}
+          magazineReset={magazineReset}
+          onMcStartMagazineChange={handleMcStartMagazineChange}
+          onStandaloneMagazineConfirm={handleStandaloneMagazineConfirm}
+        />
 
         {currentOrder && currentOrder.status === 'ORDER_READY' && (
           <Alert
