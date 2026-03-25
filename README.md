@@ -27,6 +27,22 @@ make up
 
 UI erreichbar unter `http://localhost:3000`.
 
+## Docker Image (GHCR)
+
+Das Image wird automatisch in der GitHub Container Registry veröffentlicht:
+
+- `ghcr.io/rabeaifeanyi/dispensebot:latest` (Default-Branch)
+- `ghcr.io/rabeaifeanyi/dispensebot:vX.Y.Z` (Release-Tags)
+
+Direkt testen:
+
+```bash
+docker pull ghcr.io/rabeaifeanyi/dispensebot:latest
+docker run --rm -p 3000:3000 -p 3001:3001 ghcr.io/rabeaifeanyi/dispensebot:latest
+```
+
+Für den kompletten Stack inkl. Postgres ist Docker Compose empfohlen (siehe Schnellstart oben).
+
 ### Verbindung zum Automaten (ESP32)
 
 - In `.env` die Adresse des MC setzen, z. B.:
