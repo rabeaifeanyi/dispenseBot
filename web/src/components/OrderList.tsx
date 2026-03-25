@@ -11,41 +11,32 @@ import { i18n } from '@/lib/i18n';
 import { spacing } from '@/styles/spacing';
 import { useApi, Order } from '@/contexts/ApiContext';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
-const statusConfig: Record<
-  string,
-  { color: string; icon: React.ReactNode; label: string }
-> = {
+const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
   PENDING: {
     color: 'gold',
     icon: <ClockCircleOutlined />,
-    label: 'Ausstehend',
   },
   PROCESSING_ORDER: {
     color: 'blue',
     icon: <SyncOutlined />,
-    label: 'In Bearbeitung',
   },
   ORDER_READY: {
     color: 'cyan',
     icon: <CheckCircleOutlined />,
-    label: 'Bereit zur Abholung',
   },
   PICKED_UP: {
     color: 'green',
     icon: <CheckCircleOutlined />,
-    label: 'Abgeholt',
   },
   MAGAZINE_CHANGE_NEEDED: {
     color: 'red',
     icon: <CloseCircleOutlined />,
-    label: 'Magazin wechsel erforderlich',
   },
   ABORTED: {
     color: 'red',
     icon: <CloseCircleOutlined />,
-    label: 'Abgebrochen',
   },
 };
 
@@ -87,9 +78,6 @@ export default function OrderList({ demoMode = false }: OrderListProps) {
   if (displayOrders.length === 0) {
     return (
       <div style={{ paddingTop: spacing.xl, paddingBottom: spacing.xl }}>
-        <Title level={3} style={{ marginBottom: spacing.md }}>
-          {i18n.t('orders.title')}
-        </Title>
         <Empty description={i18n.t('orders.noOrders')} />
       </div>
     );
@@ -97,101 +85,106 @@ export default function OrderList({ demoMode = false }: OrderListProps) {
 
   return (
     <>
-      <Title level={3} style={{ marginBottom: spacing.md }}>
-        {i18n.t('orders.title')}
-      </Title>
       <List
-      dataSource={displayOrders}
-      split={false}
-      renderItem={(order) => {
-        const status = statusConfig[order.status] || statusConfig.PENDING;
-        return (
-          <List.Item style={{ padding: 0, marginBottom: spacing.sm }}>
-            <Card
-              style={{
-                width: '100%',
-                background: '#fafafa',
-                borderRadius: 24,
-                border: 'none',
-              }}
-              styles={{ body: { padding: spacing.sm } }}
-              title={
-                <Space>
-                  {status.icon}
-                  <span>{order.id}</span>
-                </Space>
-              }
-              extra={
-                <Tag color={status.color} icon={status.icon}>
-                  {status.label}
-                </Tag>
-              }
-            >
-              <Text type="secondary">
-                {new Date(order.timestamp).toLocaleString('de-DE')}
-              </Text>
-
-              <div
+        dataSource={displayOrders}
+        split={false}
+        renderItem={(order) => {
+          const status = statusConfig[order.status] || statusConfig.PENDING;
+          const workflowKey = `orderWorkflowStatus.${order.status}`;
+          const translatedLabel = i18n.t(workflowKey);
+          const label =
+            translatedLabel === workflowKey ? order.status : translatedLabel;
+          return (
+            <List.Item style={{ padding: 0, marginBottom: spacing.sm }}>
+              <Card
                 style={{
-                  marginTop: spacing.xs + 4,
-                  marginBottom: spacing.xs / 2,
+                  width: '100%',
+                  background: '#fafafa',
+                  borderRadius: 24,
+                  border: 'none',
                 }}
+                styles={{ body: { padding: spacing.sm } }}
+                title={
+                  <Space>
+                    {status.icon}
+                    <span>{order.id}</span>
+                  </Space>
+                }
+                extra={
+                  <Tag color={status.color} icon={status.icon}>
+                    {label}
+                  </Tag>
+                }
               >
-                <Text strong>Komponenten:</Text>
-              </div>
-              <List
-                size="small"
-                dataSource={order.items || []}
-                renderItem={(item) => {
-                  const name =
-                    componentsConfig?.parts?.[
+                <Text type="secondary">
+                  {new Date(order.timestamp).toLocaleString('de-DE')}
+                </Text>
+
+                <div
+                  style={{
+                    marginTop: spacing.xs + 4,
+                    marginBottom: spacing.xs / 2,
+                  }}
+                >
+                  <Text strong>{i18n.t('orders.componentsHeading')}</Text>
+                </div>
+                <List
+                  size="small"
+                  dataSource={order.items || []}
+                  renderItem={(item) => {
+                    const name =
+                      componentsConfig?.parts?.[
+                        String(
+                          item.component?.type ?? (item.componentId as any)
+                        ).toUpperCase()
+                      ]?.displayName ??
                       String(
-                        item.component?.type ?? (item.componentId as any)
-                      ).toUpperCase()
-                    ]?.displayName ??
-                    String(
-                      item.component?.type ?? (item.componentId as any) ?? ''
+                        item.component?.type ?? (item.componentId as any) ?? ''
+                      );
+
+                    const isAborted = order.status === 'ABORTED';
+                    const dispensed = item.dispensedQuantity ?? 0;
+                    const note =
+                      isAborted &&
+                      item.quantity > 0 &&
+                      dispensed >= item.quantity
+                        ? 'wurde ausgegeben'
+                        : isAborted && dispensed === 0
+                        ? 'nicht ausgegeben'
+                        : isAborted && dispensed < item.quantity
+                        ? `${dispensed} ausgegeben`
+                        : null;
+
+                    const noteColor =
+                      isAborted &&
+                      item.quantity > 0 &&
+                      dispensed >= item.quantity
+                        ? '#389e0d'
+                        : '#cf1322';
+
+                    return (
+                      <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
+                        <Text strong>{item.quantity}x</Text> {name}
+                        {note && (
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: noteColor,
+                              marginLeft: 6,
+                            }}
+                          >
+                            ({note})
+                          </Text>
+                        )}
+                      </List.Item>
                     );
-
-                  const isAborted = order.status === 'ABORTED';
-                  const dispensed = item.dispensedQuantity ?? 0;
-                  const note =
-                    isAborted && item.quantity > 0 && dispensed >= item.quantity
-                      ? 'wurde ausgegeben'
-                      : isAborted && dispensed === 0
-                      ? 'nicht ausgegeben'
-                      : isAborted && dispensed < item.quantity
-                      ? `${dispensed} ausgegeben`
-                      : null;
-
-                  const noteColor =
-                    isAborted && item.quantity > 0 && dispensed >= item.quantity
-                      ? '#389e0d'
-                      : '#cf1322';
-
-                  return (
-                    <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
-                      <Text strong>{item.quantity}x</Text> {name}
-                      {note && (
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            color: noteColor,
-                            marginLeft: 6,
-                          }}
-                        >
-                          ({note})
-                        </Text>
-                      )}
-                    </List.Item>
-                  );
-                }}
-              />
-            </Card>
-          </List.Item>
-        );
-      }}
-    />
+                  }}
+                />
+              </Card>
+            </List.Item>
+          );
+        }}
+      />
     </>
   );
 }

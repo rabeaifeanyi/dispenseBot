@@ -8,6 +8,7 @@ import { i18n } from '@/lib/i18n';
 import { sortByPartOrder } from '@/lib/componentOrder';
 import { spacing } from '@/styles/spacing';
 import { useApi, InventoryItem } from '@/contexts/ApiContext';
+import { useDemo } from '@/contexts/DemoContext';
 import { buildInventurInitialValues } from './inventory/inventoryUtils';
 import InventurModal from './inventory/InventurModal';
 import { useInventoryTableColumns } from './inventory/inventoryTableColumns';
@@ -32,7 +33,12 @@ export default function InventoryDashboard({
     forceStartMagazineChange,
     queueStatus,
   } = useApi();
-  const [inventory, setInventory] = useState<InventoryItem[]>(apiInventory);
+  const { isDemo, mockInventory, mcConnected: demoMcConnected } = useDemo();
+
+  const inventorySource = isDemo
+    ? (mockInventory as InventoryItem[])
+    : apiInventory;
+  const [inventory, setInventory] = useState<InventoryItem[]>(inventorySource);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<InventoryEditValues>({
     totalStock: 50,
@@ -65,13 +71,14 @@ export default function InventoryDashboard({
 
   useEffect(() => {
     setInventory(
-      sortByPartOrder(apiInventory, componentsConfig?.order ?? undefined)
+      sortByPartOrder(inventorySource, componentsConfig?.order ?? undefined)
     );
-  }, [apiInventory, componentsConfig?.order]);
+  }, [inventorySource, componentsConfig?.order]);
 
-  const magazineChangeDisabled = mcConnected === false;
-  const blockMagazineForce =
-    queueStatus?.activeOrder?.status === 'ORDER_READY';
+  const magazineChangeDisabled = isDemo ? true : mcConnected === false;
+  const blockMagazineForce = isDemo
+    ? false
+    : queueStatus?.activeOrder?.status === 'ORDER_READY';
 
   const handleEdit = useCallback((record: InventoryItem) => {
     setEditingId(record.componentId);
@@ -98,6 +105,47 @@ export default function InventoryDashboard({
             .t('inventory.maxOrderQuantityOutOfRange')
             .replace('{max}', String(editValues.magazineCount))
         );
+        return;
+      }
+
+      if (isDemo) {
+        const newTotal = editValues.totalStock;
+        const newMag = editValues.currentMagazineStock;
+        const shouldConfirm =
+          typeof newTotal === 'number' &&
+          typeof newMag === 'number' &&
+          newTotal >= 0 &&
+          newMag >= 0 &&
+          newTotal < newMag;
+
+        if (shouldConfirm) {
+          const confirmed = await new Promise<boolean>((resolve) => {
+            modal.confirm({
+              title: 'Lagerbestand unter Magazinfüllstand',
+              content: `Du setzt den Gesamtbestand auf ${newTotal}, aber der Magazinfüllstand wäre dann ${newMag}. Das ist inkonsistent. Wenn du fortfährst, wird der Magazinfüllstand automatisch auf ${newTotal} reduziert. Fortfahren?`,
+              okText: 'Ja, übernehmen',
+              cancelText: 'Abbrechen',
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false),
+            });
+          });
+
+          if (!confirmed) return;
+        }
+
+        setInventory((prev) =>
+          prev.map((item) => {
+            if (item.componentId !== componentId) return item;
+            return {
+              ...item,
+              ...editValues,
+              currentMagazineStock: shouldConfirm ? newTotal : newMag,
+              totalStock: newTotal,
+            };
+          })
+        );
+        setEditingId(null);
+        messageApi.success(i18n.t('inventory.updateSuccess'));
         return;
       }
 
@@ -141,7 +189,7 @@ export default function InventoryDashboard({
         messageApi.error(i18n.t('inventory.updateError'));
       }
     },
-    [editValues, inventory, messageApi, modal, updateInventoryItem]
+    [editValues, inventory, isDemo, messageApi, modal, updateInventoryItem]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -160,9 +208,26 @@ export default function InventoryDashboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-init only when opening, not on inventory refetch
   }, [inventurOpen]);
 
-  const handleInventurSave = useCallback(async () => {
+  const handleInventorySave = useCallback(async () => {
     setInventurSaving(true);
     try {
+      if (isDemo) {
+        const next = inventory.map((item) => {
+          const componentId = item.componentId;
+          const totalStock =
+            (item.currentMagazineStock ?? 0) +
+            (inventurLooseValues[componentId] ?? 0) +
+            (inventurFullMagazines[componentId] ?? 0) * item.magazineSize;
+          return { ...item, totalStock };
+        });
+        setInventory(
+          sortByPartOrder(next, componentsConfig?.order ?? undefined)
+        );
+        messageApi.success(i18n.t('inventory.inventurTotalUpdated'));
+        setInventurOpen(false);
+        return;
+      }
+
       await Promise.all(
         inventory.map((item) => {
           const componentId = item.componentId;
@@ -187,6 +252,8 @@ export default function InventoryDashboard({
     inventory,
     inventurLooseValues,
     inventurFullMagazines,
+    isDemo,
+    componentsConfig?.order,
     messageApi,
     updateInventoryItem,
     setInventurOpen,
@@ -194,9 +261,9 @@ export default function InventoryDashboard({
 
   const handleForceMagazineChange = useCallback(
     async (record: InventoryItem) => {
+      if (isDemo) return;
       if (magazineChangeDisabled || blockMagazineForce) return;
-      const partCfg =
-        componentsConfig?.parts?.[record.component.type];
+      const partCfg = componentsConfig?.parts?.[record.component.type];
       const part = partCfg?.mc?.magazinIndex;
       if (!part) {
         messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
@@ -215,6 +282,7 @@ export default function InventoryDashboard({
       blockMagazineForce,
       componentsConfig,
       forceStartMagazineChange,
+      isDemo,
       messageApi,
     ]
   );
@@ -244,7 +312,7 @@ export default function InventoryDashboard({
         inventurFullMagazines={inventurFullMagazines}
         setInventurLooseValues={setInventurLooseValues}
         setInventurFullMagazines={setInventurFullMagazines}
-        onOk={() => void handleInventurSave()}
+        onOk={() => void handleInventorySave()}
         onCancel={() => setInventurOpen(false)}
       />
       {!isInventurControlled && (
@@ -264,9 +332,11 @@ export default function InventoryDashboard({
           dataSource={inventory}
           rowKey="id"
           rowClassName={(record) => {
-            const warning = typeof record.warningStock === 'number' ? record.warningStock : 0;
+            const warning =
+              typeof record.warningStock === 'number' ? record.warningStock : 0;
             const criticalThreshold = warning / 2;
-            if (record.totalStock <= criticalThreshold) return 'critical-stock-row';
+            if (record.totalStock <= criticalThreshold)
+              return 'critical-stock-row';
             if (record.totalStock <= warning) return 'low-stock-row';
             return '';
           }}

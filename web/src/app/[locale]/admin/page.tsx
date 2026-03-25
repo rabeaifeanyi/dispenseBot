@@ -2,23 +2,31 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import InventoryDashboard from '@/components/InventoryDashboard';
-import { Button, message } from 'antd';
+import { Alert, Button, message } from 'antd';
 import { LogoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { spacing } from '@/styles/spacing';
 import { i18n } from '@/lib/i18n';
+import { useDemo } from '@/contexts/DemoContext';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
 export default function AdminPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isDemo } = useDemo();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => isDemo);
+  const [isLoading, setIsLoading] = useState(() => !isDemo);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [inventurOpen, setInventurOpen] = useState(false);
 
   useEffect(() => {
+    if (isDemo) {
+      setIsAuthenticated(true);
+      setIsLoading(false);
+      return;
+    }
+
     const savedAuth = localStorage.getItem('admin_authenticated');
     const savedTime = localStorage.getItem('admin_last_activity');
 
@@ -44,7 +52,7 @@ export default function AdminPage() {
   }, [router, pathname]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isDemo) return;
 
     const checkInactivity = setInterval(() => {
       const timeSinceActivity = Date.now() - lastActivity;
@@ -63,7 +71,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isDemo) return;
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     events.forEach((event) => window.addEventListener(event, updateActivity));
@@ -92,6 +100,15 @@ export default function AdminPage() {
 
   return (
     <div>
+      {isDemo && (
+        <Alert
+          message={i18n.t('home.demoAlertTitle')}
+          description={i18n.t('adminPage.demoAlertDescription')}
+          type="info"
+          showIcon
+          style={{ marginBottom: spacing.md }}
+        />
+      )}
       {isAuthenticated && (
         <>
           <div

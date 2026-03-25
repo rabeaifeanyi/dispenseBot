@@ -72,7 +72,7 @@ export const mockInventory = [
 
 export function DemoProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isDemo = pathname.startsWith('/demo');
+  const isDemo = /\/demo(\/|$)/.test(pathname);
 
   return (
     <DemoContext.Provider

@@ -254,7 +254,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   const mcPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const pathname = usePathname();
-  const isDemo = pathname.startsWith('/demo');
+  const isDemo = /\/demo(\/|$)/.test(pathname);
 
   useEffect(() => {
     if (!initializedRef.current) {
@@ -499,7 +499,9 @@ export function ApiProvider({ children }: { children: ReactNode }) {
               const key = (q: QueueStatusResponse | null) =>
                 `${q?.queueLength ?? 0}|${q?.activeOrder?.id ?? ''}|${
                   q?.activeOrder?.status ?? ''
-                }|${q?.queuedOrders?.length ?? 0}|${q?.mcNeedsMagazineChange ?? false}`;
+                }|${q?.queuedOrders?.length ?? 0}|${
+                  q?.mcNeedsMagazineChange ?? false
+                }`;
               return key(prev) === key(normalized) ? prev : normalized;
             });
           }
@@ -774,17 +776,23 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     await Promise.all([refetchQueueStatus(true), refetchMcStatus(true)]);
   }, [refetchMcStatus, refetchQueueStatus]);
 
-  const forceStartMagazineChange = useCallback(async (part: number) => {
-    const response = await fetch(`${API_URL}/orders/mc/magazine-change/force`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ part }),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const forceStartMagazineChange = useCallback(
+    async (part: number) => {
+      const response = await fetch(
+        `${API_URL}/orders/mc/magazine-change/force`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ part }),
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    queueCache = null;
-    await Promise.all([refetchQueueStatus(true), refetchMcStatus(true)]);
-  }, [refetchMcStatus, refetchQueueStatus]);
+      queueCache = null;
+      await Promise.all([refetchQueueStatus(true), refetchMcStatus(true)]);
+    },
+    [refetchMcStatus, refetchQueueStatus]
+  );
 
   const value: ApiContextType = {
     inventory: inventoryServer,

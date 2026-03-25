@@ -17,9 +17,20 @@ import { MC_STATUS_CODES } from '@/lib/magazineChangePhase';
 const isProcessing = (status: string) => status === MC_STATUS_CODES.DISPENSING;
 
 function getNormalPathFromDemo(pathname: string): string {
-  if (pathname === '/demo' || pathname.match(/\/[a-z]{2}\/demo\/home/))
+  const localeHomeMatch = pathname.match(/^\/([a-z]{2})\/demo\/home\/?$/i);
+  if (localeHomeMatch) {
+    const locale = localeHomeMatch[1];
+    return `/${locale}/`;
+  }
+
+  if (
+    pathname === '/demo' ||
+    pathname === '/demo/home' ||
+    pathname === '/demo/home/'
+  )
     return '/';
-  return pathname.replace(/\/[a-z]{2}\/demo/, '') || '/';
+
+  return pathname.replace(/\/[a-z]{2}\/demo/, '').replace(/\/demo/, '') || '/';
 }
 
 export default function Home() {

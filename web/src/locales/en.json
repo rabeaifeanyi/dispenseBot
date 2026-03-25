@@ -165,7 +165,6 @@
     "emptyQueue": "No orders in queue"
   },
   "orders": {
-    "title": "Order overview",
     "newOrder": "New Order",
     "orderNumber": "Order Number",
     "status": "Status",
