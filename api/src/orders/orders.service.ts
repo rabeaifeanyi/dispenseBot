@@ -285,7 +285,16 @@ export class OrdersService {
         : 0;
     }
 
-    await this.mcClient.confirmMagazineChange(changeFlags);
+    try {
+      await this.mcClient.confirmMagazineChange(changeFlags);
+    } catch (error: any) {
+      this.logger.warn(
+        `MC did not finish magazine change for order ${order.orderNumber}: ${error?.message ?? String(error)}`
+      );
+      throw new BadRequestException(
+        'MC did not complete magazine change. Please retry magazine reset.'
+      );
+    }
 
     const changedPartTypes = new Set<string>();
     for (const [partType, partCfg] of Object.entries(cfg.parts)) {
@@ -494,7 +503,16 @@ export class OrdersService {
         : 0;
     }
 
-    await this.mcClient.confirmMagazineChange(changeFlags);
+    try {
+      await this.mcClient.confirmMagazineChange(changeFlags);
+    } catch (error: any) {
+      this.logger.warn(
+        `Standalone magazine change did not complete: ${error?.message ?? String(error)}`
+      );
+      throw new BadRequestException(
+        'MC did not complete magazine change. Please retry.'
+      );
+    }
 
     const changedPartTypes = new Set<string>();
     for (const [partType, partCfg] of Object.entries(cfg.parts)) {

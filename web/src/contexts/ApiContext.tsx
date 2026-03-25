@@ -116,6 +116,7 @@ export interface QueueStatusResponse {
 
 export interface McStatusResponse {
   status_bin: string;
+  warte_auf_magazin_einsetzen?: number | boolean;
   [key: string]: unknown;
 }
 
@@ -174,6 +175,8 @@ interface ApiContextType {
   cancelOrder: (orderId: string) => Promise<void>;
   magazineReset: (orderId: string) => Promise<void>;
   standaloneMagazineChange: () => Promise<void>;
+  startMagazineChange: () => Promise<void>;
+  forceStartMagazineChange: (part: number) => Promise<void>;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -760,6 +763,29 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     ]);
   }, [refetchInventory, refetchOrders, refetchQueueStatus]);
 
+  const startMagazineChange = useCallback(async () => {
+    const response = await fetch(`${API_URL}/orders/mc/magazine-change/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    queueCache = null;
+    await Promise.all([refetchQueueStatus(true), refetchMcStatus(true)]);
+  }, [refetchMcStatus, refetchQueueStatus]);
+
+  const forceStartMagazineChange = useCallback(async (part: number) => {
+    const response = await fetch(`${API_URL}/orders/mc/magazine-change/force`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ part }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    queueCache = null;
+    await Promise.all([refetchQueueStatus(true), refetchMcStatus(true)]);
+  }, [refetchMcStatus, refetchQueueStatus]);
+
   const value: ApiContextType = {
     inventory: inventoryServer,
     orders,
@@ -783,6 +809,8 @@ export function ApiProvider({ children }: { children: ReactNode }) {
     cancelOrder,
     magazineReset,
     standaloneMagazineChange,
+    startMagazineChange,
+    forceStartMagazineChange,
   };
 
   return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;

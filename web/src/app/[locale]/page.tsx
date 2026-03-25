@@ -22,6 +22,23 @@ const STATUS_CODES = {
 } as const;
 const isProcessing = (status: string) => status === STATUS_CODES.DISPENSING;
 
+type MagChangeUiPhase = 'WAIT_START' | 'CALIBRATING' | 'CONFIRM_INSERT' | 'NONE';
+
+function getMagChangeUiPhase(
+  mcStatusData: { status_bin?: unknown; warte_auf_magazin_einsetzen?: unknown } | null
+): MagChangeUiPhase {
+  const statusBin =
+    typeof mcStatusData?.status_bin === 'string' ? mcStatusData.status_bin : null;
+  const waitFlag = mcStatusData?.warte_auf_magazin_einsetzen;
+  const waitingForInsert = waitFlag === 1 || waitFlag === true;
+
+  if (statusBin === STATUS_CODES.CALIBRATING) return 'CALIBRATING';
+  if (statusBin === STATUS_CODES.MAG_CHANGE) {
+    return waitingForInsert ? 'CONFIRM_INSERT' : 'WAIT_START';
+  }
+  return 'NONE';
+}
+
 function getNormalPathFromDemo(pathname: string): string {
   if (pathname === '/demo' || pathname.match(/\/[a-z]{2}\/demo\/home/))
     return '/';
@@ -42,6 +59,7 @@ export default function Home() {
     cancelOrder,
     magazineReset,
     standaloneMagazineChange,
+    startMagazineChange,
     componentsConfig,
   } = useApi();
 
@@ -50,6 +68,7 @@ export default function Home() {
   const [loadingQuickOrder, setLoadingQuickOrder] = useState(false);
   const [loadingStandaloneMagChange, setLoadingStandaloneMagChange] =
     useState(false);
+  const [loadingStartMagChange, setLoadingStartMagChange] = useState(false);
 
   const [quickMagazineChangePromptOpen, setQuickMagazineChangePromptOpen] =
     useState(false);
@@ -81,6 +100,7 @@ export default function Home() {
     ? demoMcStatus
     : mcStatus ?? STATUS_CODES.WAIT_ORDER;
   const effectiveMcStatusData = isDemo ? demoMcStatusData : mcStatusData;
+  const magChangeUiPhase = getMagChangeUiPhase(effectiveMcStatusData);
 
   const handleOrderSuccess = () => {
     setIsModalOpen(false);
@@ -286,6 +306,8 @@ export default function Home() {
             !!currentOrder && currentOrder.status === 'MAGAZINE_CHANGE_NEEDED'
           }
           onCancel={() => {}}
+          closable={false}
+          maskClosable={false}
           footer={
             <Space>
               <Button
@@ -307,9 +329,34 @@ export default function Home() {
               >
                 {i18n.t('home.cancelOrderButton')}
               </Button>
+              {magChangeUiPhase === 'WAIT_START' && (
+                <Button
+                  type="default"
+                  loading={loadingStartMagChange}
+                  disabled={!isDemo && actualMcConnected === false}
+                  onClick={async () => {
+                    if (isDemo) return;
+                    setLoadingStartMagChange(true);
+                    try {
+                      await startMagazineChange();
+                    } catch (e) {
+                      console.error('Start magazine change failed:', e);
+                      message.error(i18n.t('home.magazineChangeStartFailed'));
+                    } finally {
+                      setLoadingStartMagChange(false);
+                    }
+                  }}
+                >
+                  {i18n.t('home.magazineChangeStartButton')}
+                </Button>
+              )}
               <Button
                 type="primary"
-                disabled={!isDemo && actualMcConnected === false}
+                disabled={
+                  !isDemo &&
+                  (actualMcConnected === false ||
+                    magChangeUiPhase !== 'CONFIRM_INSERT')
+                }
                 onClick={async () => {
                   if (!currentOrder?.id) return;
                   if (isDemo) {
@@ -331,7 +378,11 @@ export default function Home() {
           destroyOnHidden
         >
           <p style={{ marginBottom: spacing.sm }}>
-            {i18n.t('home.magazineEmptyDuringProcessing')}
+            {magChangeUiPhase === 'WAIT_START'
+              ? i18n.t('home.magazineChangeWaitStart')
+              : magChangeUiPhase === 'CALIBRATING'
+                ? i18n.t('home.magazineChangeCalibrating')
+                : i18n.t('home.magazineEmptyDuringProcessing')}
           </p>
           {(() => {
             const parts = componentsConfig?.parts ?? {};
@@ -369,30 +420,57 @@ export default function Home() {
           closable={false}
           maskClosable={false}
           footer={
-            <Button
-              type="primary"
-              loading={loadingStandaloneMagChange}
-              disabled={actualMcConnected === false}
-              onClick={async () => {
-                setLoadingStandaloneMagChange(true);
-                try {
-                  await standaloneMagazineChange();
-                } catch (e) {
-                  console.error('Standalone magazine change failed:', e);
-                  message.error('Magazinwechsel fehlgeschlagen');
-                } finally {
-                  setLoadingStandaloneMagChange(false);
-                }
-              }}
-            >
-              Magazin gewechselt
-            </Button>
+            <Space>
+              {magChangeUiPhase === 'WAIT_START' && (
+                <Button
+                  type="default"
+                  loading={loadingStartMagChange}
+                  disabled={actualMcConnected === false}
+                  onClick={async () => {
+                    setLoadingStartMagChange(true);
+                    try {
+                      await startMagazineChange();
+                    } catch (e) {
+                      console.error('Start magazine change failed:', e);
+                      message.error(i18n.t('home.magazineChangeStartFailed'));
+                    } finally {
+                      setLoadingStartMagChange(false);
+                    }
+                  }}
+                >
+                  {i18n.t('home.magazineChangeStartButton')}
+                </Button>
+              )}
+              {magChangeUiPhase === 'CONFIRM_INSERT' && (
+                <Button
+                  type="primary"
+                  loading={loadingStandaloneMagChange}
+                  disabled={actualMcConnected === false}
+                  onClick={async () => {
+                    setLoadingStandaloneMagChange(true);
+                    try {
+                      await standaloneMagazineChange();
+                    } catch (e) {
+                      console.error('Standalone magazine change failed:', e);
+                      message.error('Magazinwechsel fehlgeschlagen');
+                    } finally {
+                      setLoadingStandaloneMagChange(false);
+                    }
+                  }}
+                >
+                  Magazin gewechselt
+                </Button>
+              )}
+            </Space>
           }
           destroyOnHidden
         >
           <p style={{ marginBottom: spacing.sm }}>
-            Der Automat wartet auf einen Magazinwechsel. Bitte wechsle das
-            Magazin und bestätige anschließend.
+            {magChangeUiPhase === 'WAIT_START'
+              ? 'Der Automat wartet auf den Start des Magazinwechsels. Drücke die Taste am Automaten, um den Wechsel zu starten.'
+              : magChangeUiPhase === 'CALIBRATING'
+                ? 'Kalibrierung läuft… bitte warten.'
+                : 'Der Automat wartet auf die Bestätigung. Bitte Magazin einsetzen und bestätigen.'}
           </p>
           {(() => {
             const parts = componentsConfig?.parts ?? {};

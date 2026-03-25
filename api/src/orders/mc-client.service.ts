@@ -28,6 +28,7 @@ export class McClientService {
   private readonly mcUrl: string;
   private readonly mcStatusUrl: string;
   private readonly mcMagazineChangeUrl: string;
+  private readonly mcMagazineChangeStartUrl: string;
   private readonly requestTimeout = 10000;
   private readonly statusPollInterval = 2000;
   private readonly maxProcessingTime = 300000;
@@ -45,8 +46,27 @@ export class McClientService {
     this.mcUrl = `${baseUrl}/setAusgabe`;
     this.mcStatusUrl = `${baseUrl}/status`;
     this.mcMagazineChangeUrl = `${baseUrl}/magazinwechsel`;
+    this.mcMagazineChangeStartUrl = `${baseUrl}/magazinwechsel/start`;
     this.logger.log(`MC Status URL: ${this.mcStatusUrl}`);
     this.logger.log(`MC Magazine Change URL: ${this.mcMagazineChangeUrl}`);
+  }
+
+  async startMagazineChange(): Promise<void> {
+    this.logger.log('Requesting MC to start magazine change');
+    await firstValueFrom(
+      this.httpService
+        .post(this.mcMagazineChangeStartUrl, {}, { proxy: false })
+        .pipe(timeout(10000))
+    );
+  }
+
+  async forceStartMagazineChange(part: number): Promise<void> {
+    this.logger.log(`Forcing MC magazine change from idle for part ${part}`);
+    await firstValueFrom(
+      this.httpService
+        .post(this.mcMagazineChangeStartUrl, { part }, { proxy: false })
+        .pipe(timeout(10000))
+    );
   }
 
   async sendOrderToMc(
@@ -307,10 +327,12 @@ export class McClientService {
           return;
         }
 
-        if (
-          data.status_bin === SystemStatusCode.MAG_CHANGE &&
-          (waitFlag === 1 || waitFlag === true)
-        ) {
+        const shouldSendStep2 =
+          (waitFlag === 1 || waitFlag === true) &&
+          (data.status_bin === SystemStatusCode.MAG_CHANGE ||
+            data.status_bin === SystemStatusCode.CALIBRATING);
+
+        if (shouldSendStep2) {
           const now = Date.now();
           if (now - step2SentAt >= step2MinIntervalMs) {
             step2SentAt = now;
@@ -345,8 +367,8 @@ export class McClientService {
       }
     }
 
-    this.logger.warn(
-      'confirmMagazineChange: Timeout waiting for WAIT_ORDER after calibration'
+    throw new Error(
+      'MC magazine change confirmation timed out (no WAIT_ORDER after calibration)'
     );
   }
 

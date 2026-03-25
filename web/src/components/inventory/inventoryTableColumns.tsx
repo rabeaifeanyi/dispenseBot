@@ -2,13 +2,14 @@
 
 import { useMemo } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { Button, InputNumber, Tooltip } from 'antd';
+import { Button, InputNumber, Popconfirm, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   EditOutlined,
   SaveOutlined,
   CloseOutlined,
   ReloadOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { i18n } from '@/lib/i18n';
 import type { ComponentsConfig, InventoryItem } from '@/contexts/ApiContext';
@@ -31,6 +32,7 @@ interface UseInventoryTableColumnsParams {
   onSave: (componentId: string) => void | Promise<void>;
   onCancelEdit: () => void;
   onOpenMagazineChange: (record: InventoryItem) => void;
+  onForceMagazineChange: (record: InventoryItem) => void;
 }
 
 export function useInventoryTableColumns({
@@ -43,6 +45,7 @@ export function useInventoryTableColumns({
   onSave,
   onCancelEdit,
   onOpenMagazineChange,
+  onForceMagazineChange,
 }: UseInventoryTableColumnsParams): ColumnsType<InventoryItem> {
   return useMemo(
     () => [
@@ -362,6 +365,24 @@ export function useInventoryTableColumns({
                 title={i18n.t('inventory.magazineChangeButton')}
                 aria-label={i18n.t('inventory.magazineChangeButton')}
               />
+              <Popconfirm
+                title={i18n.t('inventory.forceMagazineChangeTitle')}
+                description={i18n.t('inventory.forceMagazineChangeWarning')}
+                onConfirm={() => onForceMagazineChange(record)}
+                okText={i18n.t('common.yes')}
+                cancelText={i18n.t('common.cancel')}
+                disabled={magazineChangeDisabled}
+                overlayStyle={{ maxWidth: 320 }}
+              >
+                <Button
+                  icon={<ThunderboltOutlined />}
+                  disabled={magazineChangeDisabled}
+                  size="small"
+                  className="admin-table-action-btn"
+                  title={i18n.t('inventory.forceMagazineChangeButton')}
+                  aria-label={i18n.t('inventory.forceMagazineChangeButton')}
+                />
+              </Popconfirm>
             </div>
           );
         },
@@ -377,6 +398,7 @@ export function useInventoryTableColumns({
       onSave,
       onCancelEdit,
       onOpenMagazineChange,
+      onForceMagazineChange,
     ]
   );
 }

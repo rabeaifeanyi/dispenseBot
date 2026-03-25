@@ -30,6 +30,7 @@ export default function InventoryDashboard({
     updateInventoryItem,
     mcConnected,
     componentsConfig,
+    forceStartMagazineChange,
   } = useApi();
   const [inventory, setInventory] = useState<InventoryItem[]>(apiInventory);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -228,6 +229,27 @@ export default function InventoryDashboard({
     setMagazineChangeModalRecord(record);
   }, []);
 
+  const handleForceMagazineChange = useCallback(
+    async (record: InventoryItem) => {
+      if (magazineChangeDisabled) return;
+      const partCfg =
+        componentsConfig?.parts?.[record.component.type];
+      const part = partCfg?.mc?.magazinIndex;
+      if (!part) {
+        messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
+        return;
+      }
+      try {
+        await forceStartMagazineChange(part);
+        messageApi.success(i18n.t('inventory.forceMagazineChangeSuccess'));
+      } catch (error) {
+        console.error('Failed to force magazine change:', error);
+        messageApi.error(i18n.t('inventory.forceMagazineChangeFailed'));
+      }
+    },
+    [magazineChangeDisabled, componentsConfig, forceStartMagazineChange, messageApi]
+  );
+
   const columns = useInventoryTableColumns({
     editingId,
     editValues,
@@ -238,6 +260,7 @@ export default function InventoryDashboard({
     onSave: handleSave,
     onCancelEdit: handleCancelEdit,
     onOpenMagazineChange: handleOpenMagazineChange,
+    onForceMagazineChange: handleForceMagazineChange,
   });
 
   return (
