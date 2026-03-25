@@ -42,9 +42,11 @@ Wenn du macOS mit Docker Desktop nutzt, musst du "Host Networking" aktivieren:
 
 ## Schnellstart mit GitHub Image
 
-**`.env` anlegen und Passwort setzen**
+**Repository clonen und `.env` anlegen und Passwort setzen**
 
 ```bash
+git clone https://github.com/rabeaifeanyi/dispensebot.git
+cd dispensebot
 cp .env.example .env
 ```
 
@@ -64,6 +66,9 @@ MC_API_URL=http://192.168.178.1
 
 ```bash
 make up
+
+# Windows (falls make nicht installiert) anstatt make up
+docker compose up -d --pull always
 ```
 
 Das lädt das aktuelle Image von `ghcr.io/rabeaifeanyi/dispensebot:latest` und startet alle Dienste. Das Webinterface ist danach unter `http://localhost:3000` erreichbar.
@@ -79,6 +84,9 @@ git clone https://github.com/rabeaifeanyi/dispensebot.git
 cd dispensebot
 cp .env.example .env
 make build
+
+# Windows (falls make nicht installiert) statt make build
+docker compose build && docker compose up -d
 ```
 
 `make build` baut das Image aus dem lokalen Quellcode und startet danach den Stack. Das dauert beim ersten Mal einige Minuten.
@@ -139,6 +147,9 @@ Danach neu bauen und starten:
 
 ```bash
 make build
+
+# Windows (falls make nicht installiert)
+docker compose build && docker compose up -d
 ```
 
 Das Frontend ist jetzt unter `http://192.168.178.42:3000` von jedem Gerät im selben WLAN erreichbar.

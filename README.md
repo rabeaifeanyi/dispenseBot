@@ -46,9 +46,11 @@ If you're on macOS with Docker Desktop, you need to enable host networking:
 
 ## Quick Start with the GitHub Image
 
-**Create `.env` and set a password**
+**Clone and create `.env` and set a password**
 
 ```bash
+git clone https://github.com/rabeaifeanyi/dispensebot.git
+cd dispensebot
 cp .env.example .env
 ```
 
@@ -68,6 +70,9 @@ MC_API_URL=http://192.168.178.1
 
 ```bash
 make up
+
+# Windows (if make is not installed) instad of make up
+docker compose up -d --pull always
 ```
 
 This pulls the latest image from `ghcr.io/rabeaifeanyi/dispensebot:latest` and starts all services. The web interface is then available at `http://localhost:3000` (English version availiable at `http://localhost:3000/en`).
@@ -82,7 +87,11 @@ If you want to include your own changes in the image, build it locally:
 git clone https://github.com/rabeaifeanyi/dispensebot.git
 cd dispensebot
 cp .env.example .env
+
 make build
+
+# Windows (if make is not installed)
+docker compose build && docker compose up -d
 ```
 
 `make build` builds the image from local source and starts the stack. The first build takes a few minutes.
@@ -145,6 +154,9 @@ Then rebuild and start:
 
 ```bash
 make build
+
+# Windows (if make is not installed)
+docker compose build && docker compose up -d
 ```
 
 The web interface is now accessible from any device connected to the same Wi-Fi at `http://192.168.178.42:3000`.
