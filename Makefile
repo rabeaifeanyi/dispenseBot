@@ -1,9 +1,10 @@
 .PHONY: up build down restart logs shell
 
-## Startet die App (ohne Rebuild)
+## Startet die App (pullt das neueste Image von GitHub)
 up:
 	@chmod +x scripts/*.sh
 	@./scripts/ensure-env.sh
+	docker compose pull
 	docker compose up -d
 
 ## Baut das Image neu und startet
