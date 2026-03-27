@@ -165,7 +165,6 @@
     "emptyQueue": "Keine Bestellungen in der Warteschlange"
   },
   "orders": {
-    "title": "Bestellübersicht",
     "newOrder": "Neue Bestellung",
     "orderNumber": "Bestellnummer",
     "status": "Status",

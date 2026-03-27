@@ -95,7 +95,7 @@ const unsigned long DEFAULT_MOTOR2_START_NEUTRAL_MS = 50;
 const unsigned long MUX_TICK_US = 300;
 const unsigned long MUX_SETTLE_US = 30;
 const unsigned long HALL_DEBOUNCE_MS = 20;
-const unsigned long LB_DEBOUNCE_MS = 2;
+const unsigned long DEFAULT_LB_DEBOUNCE_MS = 20;
 
 // LED / Sound / Button
 const unsigned long LED_BLINK_MS = 300;
@@ -137,6 +137,9 @@ bool externalServoIsRunning = false;
 int servoStopUs[PART_COUNT];
 int servoRunFwdUs[PART_COUNT];
 int servoRunRevUs[PART_COUNT];
+
+// Pro Lichtschranke individuell speicherbar
+unsigned long lbDebounceMs[PART_COUNT];
 
 // Motor 2 wird weiterhin per Winkel (write) gesteuert
 int motor2CwAngle;
@@ -622,6 +625,12 @@ static unsigned long clampMotor2TimeMs(unsigned long value) {
   return value;
 }
 
+static unsigned long clampLbDebounceMs(unsigned long value) {
+  if (value < 1) return 1;
+  if (value > 1000) return 1000;
+  return value;
+}
+
 static void setDefaultServoConfig() {
   for (int i = 0; i < PART_COUNT; i++) {
     servoStopUs[i] = DEFAULT_SERVO_STOP_US;
@@ -637,6 +646,10 @@ static void setDefaultServoConfig() {
   motor2CcwMs = DEFAULT_MOTOR2_CCW_MS;
   motor2StopMs = DEFAULT_MOTOR2_STOP_MS;
   motor2StartNeutralMs = DEFAULT_MOTOR2_START_NEUTRAL_MS;
+
+  for (int i = 0; i < PART_COUNT; i++) {
+    lbDebounceMs[i] = DEFAULT_LB_DEBOUNCE_MS;
+  }
 }
 
 static void loadServoConfig() {
@@ -646,10 +659,14 @@ static void loadServoConfig() {
     String keyStop = "s" + String(i) + "_st";
     String keyFwd = "s" + String(i) + "_fw";
     String keyRev = "s" + String(i) + "_rv";
+    String keyLbDb = "lb" + String(i) + "_db";
 
     servoStopUs[i] = clampServoUs(preferences.getInt(keyStop.c_str(), DEFAULT_SERVO_STOP_US));
     servoRunFwdUs[i] = clampServoUs(preferences.getInt(keyFwd.c_str(), DEFAULT_SERVO_RUN_US));
     servoRunRevUs[i] = clampServoUs(preferences.getInt(keyRev.c_str(), DEFAULT_SERVO_RUN_REV_US));
+    lbDebounceMs[i] = clampLbDebounceMs(
+      (unsigned long)preferences.getUInt(keyLbDb.c_str(), (uint32_t)DEFAULT_LB_DEBOUNCE_MS)
+    );
   }
 
   motor2CwAngle = clampServoAngle(preferences.getInt("m2cw", DEFAULT_MOTOR2_CW_ANGLE));
@@ -671,10 +688,12 @@ static void saveServoConfig() {
     String keyStop = "s" + String(i) + "_st";
     String keyFwd = "s" + String(i) + "_fw";
     String keyRev = "s" + String(i) + "_rv";
+    String keyLbDb = "lb" + String(i) + "_db";
 
     preferences.putInt(keyStop.c_str(), servoStopUs[i]);
     preferences.putInt(keyFwd.c_str(), servoRunFwdUs[i]);
     preferences.putInt(keyRev.c_str(), servoRunRevUs[i]);
+    preferences.putUInt(keyLbDb.c_str(), (uint32_t)lbDebounceMs[i]);
   }
 
   preferences.putInt("m2cw", motor2CwAngle);
@@ -693,8 +712,8 @@ static void printServoConfig() {
   Serial.println();
   Serial.println(F("=== Servo-Konfiguration ==="));
   for (int i = 0; i < PART_COUNT; i++) {
-    Serial.printf("Servo %d -> stop=%d  fwd=%d  rev=%d\n",
-                  i + 1, servoStopUs[i], servoRunFwdUs[i], servoRunRevUs[i]);
+    Serial.printf("Servo %d -> stop=%d  fwd=%d  rev=%d  lb_db=%lu ms\n",
+                  i + 1, servoStopUs[i], servoRunFwdUs[i], servoRunRevUs[i], lbDebounceMs[i]);
   }
   Serial.printf("Motor 2 Winkel -> cw=%d  ccw=%d  stop=%d\n",
                 motor2CwAngle, motor2CcwAngle, motor2StopAngle);
@@ -877,7 +896,7 @@ static void updateLightBarrierCountForPart(int partIdx, bool lbNow) {
   }
 
   if (ss.lbLast && !lbNow) {
-    if (now - ss.lbLastEdgeMs >= LB_DEBOUNCE_MS) {
+    if (now - ss.lbLastEdgeMs >= lbDebounceMs[partIdx]) {
       totalCount[partIdx]++;
       ss.lbLastEdgeMs = now;
 
@@ -1279,6 +1298,7 @@ static void printHelp() {
   Serial.println(F("  set <servo> <stop|fwd|rev> <wert>"));
   Serial.println(F("  setm2 <cw|ccw|stop> <winkel>"));
   Serial.println(F("  setm2ms <cw|ccw|stop|start> <ms>"));
+  Serial.println(F("  setlb <lichtschranke> <ms>"));
   Serial.println(F("Beispiele:"));
   Serial.println(F("  set 1 fwd 1650"));
   Serial.println(F("  set 3 rev 1320"));
@@ -1290,6 +1310,8 @@ static void printHelp() {
   Serial.println(F("  setm2ms ccw 20"));
   Serial.println(F("  setm2ms stop 10"));
   Serial.println(F("  setm2ms start 50"));
+  Serial.println(F("  setlb 1 25"));
+  Serial.println(F("  setlb 3 40"));
   Serial.println();
 }
 
@@ -1400,6 +1422,34 @@ static void handleSerialCommand(String line) {
 
     Serial.printf("Motor 2 aktualisiert: cw=%d  ccw=%d  stop=%d\n",
                   motor2CwAngle, motor2CcwAngle, motor2StopAngle);
+    return;
+  }
+
+  if (line.startsWith("setlb ")) {
+    int p1 = line.indexOf(' ');
+    int p2 = line.indexOf(' ', p1 + 1);
+
+    if (p2 < 0) {
+      Serial.println(F("Fehler: Format ist 'setlb <lichtschranke> <ms>'"));
+      return;
+    }
+
+    int lbIdx1 = line.substring(p1 + 1, p2).toInt();
+    unsigned long value = (unsigned long)line.substring(p2 + 1).toInt();
+
+    if (lbIdx1 < 1 || lbIdx1 > PART_COUNT) {
+      Serial.println(F("Fehler: Lichtschranke muss 1..5 sein."));
+      return;
+    }
+
+    value = clampLbDebounceMs(value);
+    int idx = lbIdx1 - 1;
+    lbDebounceMs[idx] = value;
+
+    saveServoConfig();
+
+    Serial.printf("Lichtschranke %d Debounce aktualisiert: %lu ms\n",
+                  lbIdx1, lbDebounceMs[idx]);
     return;
   }
 
