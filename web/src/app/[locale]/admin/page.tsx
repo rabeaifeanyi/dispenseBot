@@ -2,23 +2,76 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import InventoryDashboard from '@/components/InventoryDashboard';
+import MagazineChangeFlowModals from '@/components/magazine/MagazineChangeFlowModals';
 import { Alert, Button, message } from 'antd';
 import { LogoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { spacing } from '@/styles/spacing';
 import { i18n } from '@/lib/i18n';
 import { useDemo } from '@/contexts/DemoContext';
+import { useApi } from '@/contexts/ApiContext';
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
 export default function AdminPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isDemo } = useDemo();
+  const { isDemo, mcConnected: demoMcConnected } = useDemo();
+  const {
+    queueStatus,
+    mcConnected: apiMcConnected,
+    mcStatusData,
+    cancelOrder,
+    magazineReset,
+    standaloneMagazineChange,
+    startMagazineChange,
+    componentsConfig,
+  } = useApi();
+  const [loadingStandaloneMagChange, setLoadingStandaloneMagChange] =
+    useState(false);
+  const [loadingStartMagChange, setLoadingStartMagChange] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => isDemo);
   const [isLoading, setIsLoading] = useState(() => !isDemo);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [inventurOpen, setInventurOpen] = useState(false);
+
+  const activeOrder = queueStatus?.activeOrder ?? null;
+  const currentOrder = isDemo
+    ? null
+    : activeOrder &&
+      (activeOrder.status === 'ORDER_READY' ||
+        activeOrder.status === 'PROCESSING_ORDER' ||
+        activeOrder.status === 'MAGAZINE_CHANGE_NEEDED')
+    ? activeOrder
+    : null;
+
+  const actualMcConnected = isDemo ? demoMcConnected : apiMcConnected;
+  const effectiveMcStatusData = isDemo ? null : mcStatusData;
+
+  const handleMcStartMagazineChange = async () => {
+    if (isDemo) return;
+    setLoadingStartMagChange(true);
+    try {
+      await startMagazineChange();
+    } catch (e) {
+      console.error('Start magazine change failed:', e);
+      message.error(i18n.t('home.magazineChangeStartFailed'));
+    } finally {
+      setLoadingStartMagChange(false);
+    }
+  };
+
+  const handleStandaloneMagazineConfirm = async () => {
+    setLoadingStandaloneMagChange(true);
+    try {
+      await standaloneMagazineChange();
+    } catch (e) {
+      console.error('Standalone magazine change failed:', e);
+      message.error(i18n.t('home.standaloneMagazineChangeFailed'));
+    } finally {
+      setLoadingStandaloneMagChange(false);
+    }
+  };
 
   useEffect(() => {
     if (isDemo) {
@@ -111,6 +164,22 @@ export default function AdminPage() {
       )}
       {isAuthenticated && (
         <>
+          <MagazineChangeFlowModals
+            isDemo={isDemo}
+            activeOrder={activeOrder}
+            currentOrder={currentOrder}
+            setDemoCurrentOrder={() => {}}
+            queueStatus={queueStatus}
+            componentsConfig={componentsConfig}
+            effectiveMcStatusData={effectiveMcStatusData}
+            actualMcConnected={actualMcConnected !== false}
+            loadingStandaloneMagChange={loadingStandaloneMagChange}
+            loadingStartMagChange={loadingStartMagChange}
+            cancelOrder={cancelOrder}
+            magazineReset={magazineReset}
+            onMcStartMagazineChange={handleMcStartMagazineChange}
+            onStandaloneMagazineConfirm={handleStandaloneMagazineConfirm}
+          />
           <div
             style={{
               display: 'flex',

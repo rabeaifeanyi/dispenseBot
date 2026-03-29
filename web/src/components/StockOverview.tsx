@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Statistic, Alert } from 'antd';
+import { Card, Row, Col, Statistic } from 'antd';
 import {
   CheckCircleOutlined,
   WarningOutlined,
@@ -11,8 +11,11 @@ import { sortByPartOrder } from '@/lib/componentOrder';
 import { spacing } from '@/styles/spacing';
 import { useApi, InventoryItem } from '@/contexts/ApiContext';
 import { i18n } from '@/lib/i18n';
-
-type StockStatus = 'good' | 'warning' | 'critical';
+import StockLevelWarnings from '@/components/StockLevelWarnings';
+import {
+  getStockLevelStatus,
+  type StockLevelStatus,
+} from '@/lib/stockLevelStatus';
 
 export default function StockOverview() {
   const { inventory: apiInventory, componentsConfig } = useApi();
@@ -23,13 +26,7 @@ export default function StockOverview() {
     [apiInventory, componentsConfig?.order]
   );
 
-  const getStockStatus = (item: InventoryItem): StockStatus => {
-    if (item.totalStock <= item.warningStock / 2) return 'critical';
-    if (item.totalStock <= item.warningStock) return 'warning';
-    return 'good';
-  };
-
-  const getStatusColor = (status: StockStatus): string => {
+  const getStatusColor = (status: StockLevelStatus): string => {
     switch (status) {
       case 'good':
         return '#8c8c8c';
@@ -42,7 +39,7 @@ export default function StockOverview() {
     }
   };
 
-  const getStatusIcon = (status: StockStatus) => {
+  const getStatusIcon = (status: StockLevelStatus) => {
     switch (status) {
       case 'good':
         return <CheckCircleOutlined />;
@@ -92,56 +89,16 @@ export default function StockOverview() {
     return `/images/components/${wideBase}.JPG`;
   };
 
-  const criticalItems = inventory.filter(
-    (item) => getStockStatus(item) === 'critical'
-  );
-  const warningItems = inventory.filter(
-    (item) => getStockStatus(item) === 'warning'
-  );
-
   return (
     <div>
-      {criticalItems.length > 0 && (
-        <Alert
-          message={i18n.t('stock.critical')}
-          description={
-            <ul style={{ marginBottom: 0 }}>
-              {criticalItems.map((item) => (
-                <li key={item.id}>
-                  {componentsConfig?.parts?.[item.component.type.toUpperCase()]
-                    ?.displayName ?? item.component.type}
-                </li>
-              ))}
-            </ul>
-          }
-          type="error"
-          showIcon
-          style={{ marginBottom: spacing.md }}
-        />
-      )}
-
-      {warningItems.length > 0 && (
-        <Alert
-          message={i18n.t('stock.low')}
-          description={
-            <ul style={{ marginBottom: 0 }}>
-              {warningItems.map((item) => (
-                <li key={item.id}>
-                  {componentsConfig?.parts?.[item.component.type.toUpperCase()]
-                    ?.displayName ?? item.component.type}
-                </li>
-              ))}
-            </ul>
-          }
-          type="warning"
-          showIcon
-          style={{ marginBottom: spacing.md }}
-        />
-      )}
+      <StockLevelWarnings
+        inventory={inventory}
+        componentsConfig={componentsConfig}
+      />
 
       <Row gutter={[spacing.sm, spacing.sm]}>
         {inventory.map((item) => {
-          const status = getStockStatus(item);
+          const status = getStockLevelStatus(item);
           const statusColor = getStatusColor(status);
           const coverBg =
             status === 'critical'

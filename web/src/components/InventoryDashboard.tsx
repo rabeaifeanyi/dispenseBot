@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Button, message, App } from 'antd';
 import { UnorderedListOutlined } from '@ant-design/icons';
 import AdminSettings from './AdminSettings';
@@ -14,6 +14,7 @@ import InventurModal from './inventory/InventurModal';
 import { useInventoryTableColumns } from './inventory/inventoryTableColumns';
 import InventoryDashboardStyles from './inventory/InventoryDashboardStyles';
 import type { InventoryEditValues } from './inventory/types';
+import StockLevelWarnings from '@/components/StockLevelWarnings';
 
 interface InventoryDashboardProps {
   inventurOpen?: boolean;
@@ -33,7 +34,7 @@ export default function InventoryDashboard({
     forceStartMagazineChange,
     queueStatus,
   } = useApi();
-  const { isDemo, mockInventory, mcConnected: demoMcConnected } = useDemo();
+  const { isDemo, mockInventory } = useDemo();
 
   const inventorySource = isDemo
     ? (mockInventory as InventoryItem[])
@@ -74,6 +75,12 @@ export default function InventoryDashboard({
       sortByPartOrder(inventorySource, componentsConfig?.order ?? undefined)
     );
   }, [inventorySource, componentsConfig?.order]);
+
+  const inventorySortedForWarnings = useMemo(
+    () =>
+      sortByPartOrder(inventory, componentsConfig?.order ?? undefined),
+    [inventory, componentsConfig?.order]
+  );
 
   const magazineChangeDisabled = isDemo ? true : mcConnected === false;
   const blockMagazineForce = isDemo
@@ -303,6 +310,10 @@ export default function InventoryDashboard({
   return (
     <div>
       {contextHolder}
+      <StockLevelWarnings
+        inventory={inventorySortedForWarnings}
+        componentsConfig={componentsConfig}
+      />
       <InventurModal
         open={inventurOpen}
         confirmLoading={inventurSaving}
