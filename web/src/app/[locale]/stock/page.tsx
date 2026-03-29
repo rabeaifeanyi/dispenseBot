@@ -2,6 +2,6 @@
 
 import StockOverview from '@/components/StockOverview';
 
-export default function OrdersPage() {
+export default function StockPage() {
   return <StockOverview />;
 }

@@ -45,7 +45,7 @@ function getNavigationItems(locale: string = 'de') {
       label: i18n.t('app.navigation.orderHistory'),
     },
     {
-      key: `/${locale}/orders`,
+      key: `/${locale}/stock`,
       icon: <DatabaseOutlined />,
       label: i18n.t('app.navigation.orders'),
     },
