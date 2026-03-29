@@ -103,14 +103,13 @@ export default function StockOverview() {
     <div>
       {criticalItems.length > 0 && (
         <Alert
-          message="Kritischer Bestand"
+          message={i18n.t('stock.critical')}
           description={
             <ul style={{ marginBottom: 0 }}>
               {criticalItems.map((item) => (
                 <li key={item.id}>
                   {componentsConfig?.parts?.[item.component.type.toUpperCase()]
                     ?.displayName ?? item.component.type}
-                  : {item.totalStock} / {item.warningStock}
                 </li>
               ))}
             </ul>
@@ -123,14 +122,13 @@ export default function StockOverview() {
 
       {warningItems.length > 0 && (
         <Alert
-          message="Niedriger Bestand"
+          message={i18n.t('stock.low')}
           description={
             <ul style={{ marginBottom: 0 }}>
               {warningItems.map((item) => (
                 <li key={item.id}>
                   {componentsConfig?.parts?.[item.component.type.toUpperCase()]
                     ?.displayName ?? item.component.type}
-                  : {item.totalStock} / {item.warningStock}
                 </li>
               ))}
             </ul>

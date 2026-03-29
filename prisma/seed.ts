@@ -25,7 +25,7 @@ async function main() {
     type,
     name: partsCfg?.[type]?.displayName ?? type,
     totalStock: 100,
-    warningStock: 10,
+    warningStock: 20,
     magazineCount: 2,
     magazineSize,
     maxOrderQuantity: 2,
