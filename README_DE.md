@@ -2,8 +2,6 @@
 
 DispenseBot ist ein 3D-gedruckter Kommissionierautomat, den wir entwickelt haben, um Stiftteile automatisiert auszugeben. Der gesamte Automat lässt sich mit einem Materialbudget von rund 100 € nachbauen. Der Automat wird von einem ESP32-Microcontroller gesteuert und über ein Webinterface bedient, das auf jedem Gerät im selben Netzwerk erreichbar ist.
 
-> 🇬🇧 [English version](README.md)
-
 ---
 
 ## Anforderungen
@@ -123,51 +121,6 @@ Alternativ in zwei separaten Terminals:
 npm run dev:api   # Terminal 1
 npm run dev:web   # Terminal 2
 ```
-
----
-
-## Übers WLAN betreiben
-
-Der ESP32 spannt ein eigenes WLAN-Netz auf (`Kommisionierautomat`, Passwort: `DCPS-WiSe2526`) mit der festen IP `192.168.178.1`. Damit das Webinterface von anderen Geräten erreichbar ist, sind folgende Schritte nötig:
-
-**1. Server-Rechner mit dem ESP32-Netz verbinden**
-
-Den Rechner, auf dem Docker läuft, mit dem WLAN `Kommisionierautomat` verbinden. Der Rechner bekommt dann eine IP im Netz des ESP32 (z. B. `192.168.178.42`).
-
-**2. API-URL auf die lokale IP des Rechners setzen**
-
-In `.env` eintragen:
-
-```env
-NEXT_PUBLIC_API_URL=http://192.168.178.42:3001
-MC_API_URL=http://192.168.178.1
-```
-
-Danach neu bauen und starten:
-
-```bash
-make build
-
-# Windows (falls make nicht installiert)
-docker compose build && docker compose up -d
-```
-
-Das Frontend ist jetzt unter `http://192.168.178.42:3000` von jedem Gerät im selben WLAN erreichbar.
-
-> **Hinweis:** `NEXT_PUBLIC_API_URL` wird beim Docker-Build ins Frontend eingebacken, daher ist nach jeder Änderung ein Rebuild nötig.
-
-**ESP32-Firmware anpassen**
-
-Die Netzwerkeinstellungen des ESP32 stehen ganz oben in `esp32/FINAL/FINAL.ino`:
-
-```cpp
-static const char* AP_SSID = "Kommisionierautomat";
-static const char* AP_PASS = "DCPS-WiSe2526";
-
-IPAddress apIP(192, 168, 178, 1);
-```
-
-`AP_SSID` und `AP_PASS` ändern, um das Netz umzubenennen oder ein neues Passwort zu setzen. `apIP` anpassen, falls ein anderer IP-Bereich gewünscht ist. Nach dem Bearbeiten die Firmware per Arduino IDE oder PlatformIO auf den ESP32 flashen.
 
 ---
 
